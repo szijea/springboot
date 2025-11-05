@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>智慧药房收银系统 - 历史订单</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
     <script src="js/common.js"></script>
 
@@ -49,6 +50,9 @@
           .btn-outline {
             @apply border border-gray-300 hover:bg-gray-50;
           }
+          .btn-danger {
+            @apply bg-accent text-white hover:bg-accent/90;
+          }
           .input {
             @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all;
           }
@@ -79,7 +83,7 @@
 </head>
 
 <body class="font-inter bg-gray-50 text-gray-800 min-h-screen flex">
-<!-- 侧边栏（与其他页面一致） -->
+<!-- 侧边栏 -->
 <aside class="w-64 bg-white border-r border-gray-200 flex-shrink-0 flex flex-col h-screen z-10">
     <div class="p-4 border-b border-gray-200">
         <div class="flex items-center gap-3">
@@ -143,7 +147,7 @@
                 <i class="fa fa-bars text-xl"></i>
             </button>
             <div class="relative">
-                <input type="text" placeholder="搜索订单号、会员..." class="w-64 px-3 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all">
+                <input type="text" placeholder="搜索订单号、会员..." class="w-64 px-3 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all" id="global-search">
                 <i class="fa fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
             </div>
         </div>
@@ -189,19 +193,19 @@
                     <label class="block text-sm font-medium text-gray-700 mb-1">订单状态</label>
                     <select class="input" id="order-status-filter">
                         <option value="">全部状态</option>
-                        <option value="paid">已支付</option>
-                        <option value="refunded">已退款</option>
-                        <option value="pending">待支付</option>
+                        <option value="1">已支付</option>
+                        <option value="2">已退款</option>
+                        <option value="0">待支付</option>
                     </select>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">支付方式</label>
                     <select class="input" id="payment-type-filter">
                         <option value="">全部方式</option>
-                        <option value="cash">现金</option>
-                        <option value="wechat">微信</option>
-                        <option value="alipay">支付宝</option>
-                        <option value="insurance">医保</option>
+                        <option value="1">现金</option>
+                        <option value="2">微信</option>
+                        <option value="3">支付宝</option>
+                        <option value="4">医保</option>
                     </select>
                 </div>
                 <div>
@@ -254,6 +258,7 @@
                 <p class="text-sm text-gray-400 mt-1">请尝试其他筛选条件</p>
             </div>
 
+            <!-- 分页部分 -->
             <div class="p-4 border-t border-gray-100 flex justify-between items-center">
                 <div class="text-sm text-gray-500" id="orders-pagination-info">显示 0-0 条，共 0 条</div>
                 <div class="flex gap-1" id="orders-pagination-controls">
@@ -276,14 +281,55 @@
             <button class="btn btn-primary" id="print-order-btn">
                 <i class="fa fa-print"></i> 打印订单
             </button>
+            <button class="btn btn-danger hidden" id="refund-order-btn">
+                <i class="fa fa-undo"></i> 退单
+            </button>
         </div>
     </div>
 </div>
+
+<!-- 退单确认模态框 -->
+<div id="refund-confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-xl p-6 w-full max-w-md">
+        <h3 class="font-bold text-lg mb-4">确认退单</h3>
+        <div class="mb-6">
+            <p class="text-gray-700 mb-2">您确定要对此订单执行退单操作吗？</p>
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div class="flex items-start">
+                    <i class="fa fa-exclamation-triangle text-yellow-500 mt-1 mr-2"></i>
+                    <div>
+                        <p class="text-sm text-yellow-700 font-medium">退单注意事项</p>
+                        <ul class="text-xs text-yellow-600 mt-1 list-disc pl-4">
+                            <li>退单后，订单状态将变为"已退款"</li>
+                            <li>如果是会员订单，使用的积分将返还给会员</li>
+                            <li>已获得的积分将从会员账户中扣除</li>
+                            <li>此操作不可撤销，请谨慎操作</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-4">
+                <label for="refund-reason" class="block text-sm font-medium text-gray-700 mb-1">退单原因（可选）</label>
+                <textarea id="refund-reason" class="input h-20" placeholder="请输入退单原因..."></textarea>
+            </div>
+        </div>
+        <div class="flex justify-end gap-3">
+            <button class="btn btn-outline" id="cancel-refund-btn">取消</button>
+            <button class="btn btn-danger" id="confirm-refund-btn">
+                <i class="fa fa-undo"></i> 确认退单
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
     // 全局变量
     let currentOrdersPage = 1;
     const ordersPageSize = 10;
     let totalOrders = 0;
+    let allOrders = [];
+    let filteredOrders = [];
+    let currentOrderDetail = null; // 当前查看详情的订单
 
     // 初始化
     document.addEventListener('DOMContentLoaded', function() {
@@ -314,30 +360,309 @@
         });
     }
 
+    // ========== 打印功能 - 移到前面 ==========
+    function printOrder() {
+        if (!currentOrderDetail) {
+            showMessage('没有可打印的订单数据', 'error');
+            return;
+        }
+
+        // 创建打印内容
+        const printContent = generatePrintContent(currentOrderDetail);
+
+        // 创建打印窗口
+        const printWindow = window.open('', '_blank', 'width=800,height=600');
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>打印订单 - ${currentOrderDetail.orderId}</title>
+                <style>
+                    body {
+                        font-family: 'Microsoft YaHei', Arial, sans-serif;
+                        margin: 20px;
+                        color: #333;
+                    }
+                    .print-header {
+                        text-align: center;
+                        margin-bottom: 20px;
+                        border-bottom: 2px solid #333;
+                        padding-bottom: 10px;
+                    }
+                    .print-header h1 {
+                        margin: 0;
+                        font-size: 24px;
+                        color: #165DFF;
+                    }
+                    .print-header .subtitle {
+                        font-size: 14px;
+                        color: #666;
+                    }
+                    .order-info {
+                        margin-bottom: 20px;
+                    }
+                    .info-section {
+                        margin-bottom: 15px;
+                    }
+                    .info-section h3 {
+                        margin: 0 0 10px 0;
+                        font-size: 16px;
+                        color: #165DFF;
+                        border-bottom: 1px solid #eee;
+                        padding-bottom: 5px;
+                    }
+                    .info-grid {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 10px;
+                    }
+                    .info-item {
+                        display: flex;
+                        justify-content: space-between;
+                        margin-bottom: 5px;
+                    }
+                    .info-label {
+                        font-weight: bold;
+                        color: #666;
+                    }
+                    .info-value {
+                        text-align: right;
+                    }
+                    .amount-section {
+                        background: #f8f9fa;
+                        padding: 15px;
+                        border-radius: 5px;
+                        margin: 20px 0;
+                    }
+                    .amount-row {
+                        display: flex;
+                        justify-content: space-between;
+                        margin-bottom: 8px;
+                    }
+                    .total-row {
+                        font-weight: bold;
+                        font-size: 18px;
+                        border-top: 2px solid #333;
+                        padding-top: 10px;
+                        margin-top: 10px;
+                    }
+                    .footer {
+                        text-align: center;
+                        margin-top: 30px;
+                        font-size: 12px;
+                        color: #999;
+                        border-top: 1px solid #eee;
+                        padding-top: 10px;
+                    }
+                    @media print {
+                        body { margin: 0; }
+                        .no-print { display: none; }
+                    }
+                </style>
+            </head>
+            <body>
+                ${printContent}
+                <div class="footer">
+                    <p>感谢您的惠顾！</p>
+                    <p>打印时间：${new Date().toLocaleString('zh-CN')}</p>
+                </div>
+                <script>
+                    window.onload = function() {
+                        window.print();
+                        setTimeout(() => {
+                            window.close();
+                        }, 500);
+                    }
+                <\/script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    }
+
+    function generatePrintContent(order) {
+        // 计算折扣金额
+        let discountAmount = order.discountAmount || 0;
+        let originalAmount = order.totalAmount || 0;
+        let actualPayment = order.actualPayment || order.totalAmount || 0;
+
+        if (order.actualPayment && order.totalAmount && order.actualPayment !== order.totalAmount) {
+            discountAmount = order.totalAmount - order.actualPayment;
+            originalAmount = order.totalAmount;
+        }
+
+        return `
+            <div class="print-header">
+                <h1>智慧药房 - 销售订单</h1>
+                <div class="subtitle">PHARMACY SALES ORDER</div>
+            </div>
+
+            <div class="order-info">
+                <div class="info-section">
+                    <h3>订单基本信息</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">订单号：</span>
+                            <span class="info-value">${order.orderId}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">下单时间：</span>
+                            <span class="info-value">${formatDateTime(order.orderTime)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">支付时间：</span>
+                            <span class="info-value">${order.payTime ? formatDateTime(order.payTime) : '未支付'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">收银员：</span>
+                            <span class="info-value">${order.cashierId || '未知'}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-section">
+                    <h3>客户信息</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">客户姓名：</span>
+                            <span class="info-value">${order.customerName || '匿名客户'}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">会员状态：</span>
+                            <span class="info-value">${order.memberId ? '会员' : '非会员'}</span>
+                        </div>
+                        ${order.memberId ? `
+                        <div class="info-item">
+                            <span class="info-label">会员ID：</span>
+                            <span class="info-value">${order.memberId}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+
+                <div class="info-section">
+                    <h3>支付信息</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">支付方式：</span>
+                            <span class="info-value">${getPaymentTypeText(order.paymentType)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">支付状态：</span>
+                            <span class="info-value">${getPaymentStatusText(order.paymentStatus)}</span>
+                        </div>
+                        ${order.refundTime ? `
+                        <div class="info-item">
+                            <span class="info-label">退款时间：</span>
+                            <span class="info-value">${formatDateTime(order.refundTime)}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">退款原因：</span>
+                            <span class="info-value">${order.refundReason || '无'}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+
+                <div class="amount-section">
+                    <div class="amount-row">
+                        <span>订单总额：</span>
+                        <span>${formatPrice(originalAmount)}</span>
+                    </div>
+                    ${discountAmount > 0 ? `
+                    <div class="amount-row">
+                        <span>优惠金额：</span>
+                        <span style="color: #36B37E;">-${formatPrice(discountAmount)}</span>
+                    </div>
+                    ` : ''}
+                    <div class="amount-row total-row">
+                        <span>实付金额：</span>
+                        <span style="color: #165DFF; font-weight: bold;">${formatPrice(actualPayment)}</span>
+                    </div>
+                </div>
+
+                ${order.memberId ? `
+                <div class="info-section">
+                    <h3>会员积分</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">使用积分：</span>
+                            <span class="info-value">${order.usedPoints || 0} 积分</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">获得积分：</span>
+                            <span class="info-value">${order.createdPoints || 0} 积分</span>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+
+                <div class="info-section">
+                    <h3>温馨提示</h3>
+                    <div style="font-size: 12px; color: #666; line-height: 1.5;">
+                        <p>• 请妥善保管本订单，作为购买凭证</p>
+                        <p>• 药品使用请遵医嘱，仔细阅读说明书</p>
+                        <p>• 如有质量问题，请凭本单7日内退换</p>
+                        <p>• 咨询电话：400-123-4567</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
     // 订单相关事件初始化
     function initOrderEvents() {
-        // 刷新订单
         document.getElementById('refresh-orders-btn').addEventListener('click', loadOrders);
-
-        // 筛选应用
-        document.getElementById('apply-filters-btn').addEventListener('click', loadOrders);
-
-        // 重置筛选
-        document.getElementById('reset-filters-btn').addEventListener('click', function() {
-            document.getElementById('order-date-filter').value = '';
-            document.getElementById('order-status-filter').value = '';
-            document.getElementById('payment-type-filter').value = '';
-            document.getElementById('member-filter').value = '';
-            loadOrders();
+        document.getElementById('apply-filters-btn').addEventListener('click', applyFilters);
+        document.getElementById('reset-filters-btn').addEventListener('click', resetFilters);
+        document.getElementById('global-search').addEventListener('input', function() {
+            currentOrdersPage = 1;
+            applyFilters();
         });
-
-        // 关闭订单详情模态框
         document.getElementById('close-order-detail').addEventListener('click', function() {
             document.getElementById('order-detail-modal').classList.add('hidden');
         });
-
-        // 导出订单
         document.getElementById('export-orders-btn').addEventListener('click', exportOrders);
+        document.getElementById('order-date-filter').addEventListener('change', function() {
+            currentOrdersPage = 1;
+            applyFilters();
+        });
+        document.getElementById('order-status-filter').addEventListener('change', function() {
+            currentOrdersPage = 1;
+            applyFilters();
+        });
+        document.getElementById('payment-type-filter').addEventListener('change', function() {
+            currentOrdersPage = 1;
+            applyFilters();
+        });
+        document.getElementById('member-filter').addEventListener('input', function() {
+            currentOrdersPage = 1;
+            applyFilters();
+        });
+
+        // 退单相关事件
+        document.getElementById('refund-order-btn').addEventListener('click', function() {
+            showRefundConfirmModal();
+        });
+        document.getElementById('cancel-refund-btn').addEventListener('click', function() {
+            document.getElementById('refund-confirm-modal').classList.add('hidden');
+        });
+        document.getElementById('confirm-refund-btn').addEventListener('click', processRefund);
+
+        // ✅ 打印订单事件监听 - 修复：放在函数内部
+        document.getElementById('print-order-btn').addEventListener('click', printOrder);
+
+    }
+
+    // 重置筛选
+    function resetFilters() {
+        document.getElementById('order-date-filter').value = '';
+        document.getElementById('order-status-filter').value = '';
+        document.getElementById('payment-type-filter').value = '';
+        document.getElementById('member-filter').value = '';
+        document.getElementById('global-search').value = '';
+        currentOrdersPage = 1;
+        applyFilters();
     }
 
     // 加载订单数据
@@ -346,13 +671,7 @@
         showOrdersLoading();
 
         try {
-            const filters = getOrderFilters();
-            console.log('查询参数:', filters);
-            console.log('页码:', currentOrdersPage, '每页大小:', ordersPageSize);
-
-            // 直接调用API
-            const response = await fetch(`http://localhost:8080/api/orders?page=${currentOrdersPage - 1}&size=${ordersPageSize}`);
-
+            const response = await fetch(`http://localhost:8080/api/orders?page=0&size=1000`);
             console.log('API响应状态:', response.status);
 
             if (!response.ok) {
@@ -363,11 +682,12 @@
             console.log('完整的API响应:', result);
 
             if (result && result.code === 200) {
-                console.log('订单数据:', result.data);
-                console.log('订单总数:', result.total);
+                console.log('获取到订单数据:', result.data);
+                allOrders = result.data || [];
+                console.log('存储所有订单:', allOrders.length, '条');
 
-                displayOrders(result.data);
-                updateOrdersPagination(result.total || 0);
+                currentOrdersPage = 1;
+                applyFilters();
             } else {
                 console.log('API返回错误:', result.message);
                 showOrdersEmpty();
@@ -379,14 +699,93 @@
         }
     }
 
-    // 获取订单筛选条件
+    // 应用筛选条件
+    function applyFilters() {
+        console.log('=== 应用筛选条件 ===');
+
+        if (allOrders.length === 0) {
+            console.log('没有订单数据可筛选');
+            showOrdersEmpty();
+            return;
+        }
+
+        const filters = getOrderFilters();
+        console.log('筛选条件:', filters);
+
+        filteredOrders = [...allOrders];
+
+        // 日期筛选
+        if (filters.date) {
+            console.log('执行日期筛选，目标日期:', filters.date);
+            filteredOrders = filteredOrders.filter(order => {
+                if (!order.orderTime) {
+                    console.log('订单没有orderTime', order);
+                    return false;
+                }
+                const orderDate = new Date(order.orderTime).toISOString().split('T')[0];
+                console.log(`比较日期: 订单日期=${orderDate}, 筛选日期=${filters.date}, 是否匹配=${orderDate === filters.date}`);
+                return orderDate === filters.date;
+            });
+            console.log('日期筛选后订单数量:', filteredOrders.length);
+        }
+
+        // 状态筛选
+        if (filters.status) {
+            filteredOrders = filteredOrders.filter(order =>
+                order.paymentStatus && order.paymentStatus.toString() === filters.status
+            );
+        }
+
+        // 支付方式筛选
+        if (filters.paymentType) {
+            filteredOrders = filteredOrders.filter(order =>
+                order.paymentType && order.paymentType.toString() === filters.paymentType
+            );
+        }
+
+        // 会员信息筛选
+        if (filters.member) {
+            const searchTerm = filters.member.toLowerCase();
+            filteredOrders = filteredOrders.filter(order =>
+                (order.customerName && order.customerName.toLowerCase().includes(searchTerm)) ||
+                (order.memberId && order.memberId.toLowerCase().includes(searchTerm))
+            );
+        }
+
+        // 全局搜索
+        if (filters.globalSearch) {
+            const searchTerm = filters.globalSearch.toLowerCase();
+            filteredOrders = filteredOrders.filter(order =>
+                (order.orderId && order.orderId.toLowerCase().includes(searchTerm)) ||
+                (order.customerName && order.customerName.toLowerCase().includes(searchTerm)) ||
+                (order.memberId && order.memberId.toLowerCase().includes(searchTerm))
+            );
+        }
+
+        console.log('筛选后订单数量:', filteredOrders.length);
+        displayFilteredOrders();
+    }
+
+    // 获取筛选条件
     function getOrderFilters() {
         return {
             date: document.getElementById('order-date-filter').value,
             status: document.getElementById('order-status-filter').value,
             paymentType: document.getElementById('payment-type-filter').value,
-            member: document.getElementById('member-filter').value
+            member: document.getElementById('member-filter').value,
+            globalSearch: document.getElementById('global-search').value
         };
+    }
+
+    // 显示筛选后的订单
+    function displayFilteredOrders() {
+        const startIndex = (currentOrdersPage - 1) * ordersPageSize;
+        const endIndex = startIndex + ordersPageSize;
+        const pagedOrders = filteredOrders.slice(startIndex, endIndex);
+
+        console.log('分页后订单:', pagedOrders);
+        displayOrders(pagedOrders);
+        updateOrdersPagination(filteredOrders.length);
     }
 
     // 显示订单加载状态
@@ -401,9 +800,12 @@
         document.getElementById('orders-list-body').classList.add('hidden');
         document.getElementById('loading-orders').classList.add('hidden');
         document.getElementById('empty-orders').classList.remove('hidden');
+        document.getElementById('orders-count').textContent = '共 0 条订单';
+        document.getElementById('orders-pagination-info').textContent = '显示 0-0 条，共 0 条';
+        document.getElementById('orders-pagination-controls').innerHTML = '';
     }
 
-    // 显示订单数据
+    // 显示订单数据 - 关键修复：重新计算折扣
     function displayOrders(orders) {
         const tbody = document.getElementById('orders-list-body');
 
@@ -421,6 +823,23 @@
 
         const html = orders.map(order => {
             console.log('处理订单:', order);
+
+            // ========== 关键修复：重新计算折扣 ==========
+            // 由于后端没有正确保存折扣信息，我们需要重新计算
+            let discountAmount = order.discountAmount || 0;
+            let originalAmount = order.totalAmount || 0;
+            let actualPayment = order.actualPayment || order.totalAmount || 0;
+
+            // 如果有实际支付金额且与总金额不同，重新计算折扣
+            // 注意：根据您的日志，后端返回的totalAmount实际上是原价，actualPayment是折后价
+            if (order.actualPayment && order.totalAmount && order.actualPayment !== order.totalAmount) {
+                discountAmount = order.totalAmount - order.actualPayment;
+                originalAmount = order.totalAmount;
+            } else if (order.memberId && order.discountAmount === 0) {
+                // 如果是会员订单但没有折扣信息，显示会员折扣（但金额为0）
+                discountAmount = 0; // 无法计算具体折扣金额
+            }
+            // ========== 折扣计算逻辑结束 ==========
 
             return `
                 <tr class="hover:bg-gray-50 transition-colors">
@@ -443,8 +862,9 @@
                         ${order.payTime ? `<div class="text-xs text-gray-500">${formatDateTime(order.payTime)}</div>` : ''}
                     </td>
                     <td class="px-6 py-4">
-                        <div class="text-sm font-medium">${formatPrice(order.actualPayment || order.totalAmount || 0)}</div>
-                        ${order.discountAmount > 0 ? `<div class="text-xs text-secondary">优惠: -${formatPrice(order.discountAmount)}</div>` : ''}
+                        <div class="text-sm font-medium">${formatPrice(actualPayment)}</div>
+                        ${discountAmount > 0 ? `<div class="text-xs text-secondary">优惠: -${formatPrice(discountAmount)}</div>` : ''}
+                        ${order.memberId && discountAmount === 0 ? `<div class="text-xs text-green-600">会员订单</div>` : ''}
                     </td>
                     <td class="px-6 py-4">
                         <button class="btn btn-outline text-sm px-3 py-1 view-order-detail" data-order-id="${order.orderId}">
@@ -471,9 +891,12 @@
         totalOrders = total;
         const totalPages = Math.ceil(total / ordersPageSize);
 
+        const startItem = ((currentOrdersPage - 1) * ordersPageSize) + 1;
+        const endItem = Math.min(currentOrdersPage * ordersPageSize, total);
+
         document.getElementById('orders-count').textContent = `共 ${total} 条订单`;
         document.getElementById('orders-pagination-info').textContent =
-            `显示 ${((currentOrdersPage - 1) * ordersPageSize) + 1}-${Math.min(currentOrdersPage * ordersPageSize, total)} 条，共 ${total} 条`;
+            `显示 ${startItem}-${endItem} 条，共 ${total} 条`;
 
         updateOrdersPaginationControls(totalPages);
     }
@@ -489,39 +912,75 @@
 
         let html = '';
 
-        // 上一页
-        html += `
-            <button class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 hover:bg-gray-50 ${currentOrdersPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}"
-                    ${currentOrdersPage === 1 ? 'disabled' : ''} onclick="changeOrdersPage(${currentOrdersPage - 1})">
-                <i class="fa fa-chevron-left text-xs"></i>
-            </button>
-        `;
+        // 上一页按钮
+        if (currentOrdersPage > 1) {
+            html += `
+                <button class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 hover:bg-gray-50 transition-colors"
+                        onclick="changeOrdersPage(${currentOrdersPage - 1})">
+                    <i class="fa fa-chevron-left text-xs"></i>
+                </button>
+            `;
+        } else {
+            html += `
+                <button class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 text-gray-400 cursor-not-allowed" disabled>
+                    <i class="fa fa-chevron-left text-xs"></i>
+                </button>
+            `;
+        }
 
-        // 页码
-        for (let i = 1; i <= totalPages; i++) {
+        // 页码按钮
+        const startPage = Math.max(1, currentOrdersPage - 2);
+        const endPage = Math.min(totalPages, startPage + 4);
+
+        for (let i = startPage; i <= endPage; i++) {
             if (i === currentOrdersPage) {
-                html += `<button class="w-8 h-8 flex items-center justify-center rounded border border-primary bg-primary text-white">${i}</button>`;
+                html += `
+                    <button class="w-8 h-8 flex items-center justify-center rounded border border-primary bg-primary text-white">
+                        ${i}
+                    </button>
+                `;
             } else {
-                html += `<button class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 hover:bg-gray-50" onclick="changeOrdersPage(${i})">${i}</button>`;
+                html += `
+                    <button class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 hover:bg-gray-50 transition-colors"
+                            onclick="changeOrdersPage(${i})">
+                        ${i}
+                    </button>
+                `;
             }
         }
 
-        // 下一页
-        html += `
-            <button class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 hover:bg-gray-50 ${currentOrdersPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}"
-                    ${currentOrdersPage === totalPages ? 'disabled' : ''} onclick="changeOrdersPage(${currentOrdersPage + 1})">
-                <i class="fa fa-chevron-right text-xs"></i>
-            </button>
-        `;
+        // 下一页按钮
+        if (currentOrdersPage < totalPages) {
+            html += `
+                <button class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 hover:bg-gray-50 transition-colors"
+                        onclick="changeOrdersPage(${currentOrdersPage + 1})">
+                    <i class="fa fa-chevron-right text-xs"></i>
+                </button>
+            `;
+        } else {
+            html += `
+                <button class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 text-gray-400 cursor-not-allowed" disabled>
+                    <i class="fa fa-chevron-right text-xs"></i>
+                </button>
+            `;
+        }
 
         container.innerHTML = html;
     }
 
     // 切换订单页面
     function changeOrdersPage(page) {
-        if (page < 1 || page > Math.ceil(totalOrders / ordersPageSize)) return;
+        console.log('切换订单页面到:', page);
+
+        const totalPages = Math.ceil(filteredOrders.length / ordersPageSize);
+
+        if (page < 1 || page > totalPages) {
+            console.log('无效的页码:', page);
+            return;
+        }
+
         currentOrdersPage = page;
-        loadOrders();
+        displayFilteredOrders();
     }
 
     // 显示订单详情
@@ -534,6 +993,7 @@
             const result = await response.json();
 
             if (result && result.code === 200) {
+                currentOrderDetail = result.data;
                 displayOrderDetail(result.data);
                 document.getElementById('order-detail-modal').classList.remove('hidden');
             } else {
@@ -545,9 +1005,21 @@
         }
     }
 
-    // 显示订单详情内容
+    // 显示订单详情内容 - 关键修复：重新计算折扣
     function displayOrderDetail(order) {
         const container = document.getElementById('order-detail-content');
+
+        // ========== 关键修复：重新计算折扣 ==========
+        let discountAmount = order.discountAmount || 0;
+        let originalAmount = order.totalAmount || 0;
+        let actualPayment = order.actualPayment || order.totalAmount || 0;
+
+        // 如果有实际支付金额且与总金额不同，重新计算折扣
+        if (order.actualPayment && order.totalAmount && order.actualPayment !== order.totalAmount) {
+            discountAmount = order.totalAmount - order.actualPayment;
+            originalAmount = order.totalAmount;
+        }
+        // ========== 折扣计算逻辑结束 ==========
 
         const html = `
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -586,15 +1058,15 @@
                         </div>
                         <div class="flex justify-between">
                             <span class="text-gray-500">订单总额:</span>
-                            <span>${formatPrice(order.totalAmount)}</span>
+                            <span>${formatPrice(originalAmount)}</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-gray-500">优惠金额:</span>
-                            <span class="text-secondary">-${formatPrice(order.discountAmount)}</span>
+                            <span class="text-secondary">-${formatPrice(discountAmount)}</span>
                         </div>
                         <div class="flex justify-between font-medium border-t pt-2">
                             <span>实付金额:</span>
-                            <span class="text-primary">${formatPrice(order.actualPayment)}</span>
+                            <span class="text-primary">${formatPrice(actualPayment)}</span>
                         </div>
                     </div>
                 </div>
@@ -629,26 +1101,190 @@
         `;
 
         container.innerHTML = html;
+
+        // 根据订单状态显示或隐藏退单按钮
+        const refundBtn = document.getElementById('refund-order-btn');
+        if (order.paymentStatus === 1) { // 只有已支付的订单可以退单
+            refundBtn.classList.remove('hidden');
+        } else {
+            refundBtn.classList.add('hidden');
+        }
     }
 
-    // 导出订单
-    async function exportOrders() {
+    // 显示退单确认模态框
+    function showRefundConfirmModal() {
+        document.getElementById('refund-confirm-modal').classList.remove('hidden');
+    }
+
+    // 处理退单请求
+    async function processRefund() {
+        const refundBtn = document.getElementById('confirm-refund-btn');
+        const originalHTML = refundBtn.innerHTML;
+
         try {
-            const btn = document.getElementById('export-orders-btn');
+            refundBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 处理中...';
+            refundBtn.disabled = true;
+
+            const refundReason = document.getElementById('refund-reason').value;
+
+            // 调用退单API
+            const response = await fetch(`http://localhost:8080/api/orders/${currentOrderDetail.orderId}/refund`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    reason: refundReason || '无'
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (result && result.code === 200) {
+                // 退单成功
+                showMessage('退单成功', 'success');
+                document.getElementById('refund-confirm-modal').classList.add('hidden');
+                document.getElementById('order-detail-modal').classList.add('hidden');
+
+                // 刷新订单列表
+                loadOrders();
+            } else {
+                throw new Error(result.message || '退单失败');
+            }
+        } catch (error) {
+            console.error('退单失败:', error);
+            showMessage('退单失败: ' + error.message, 'error');
+        } finally {
+            refundBtn.innerHTML = originalHTML;
+            refundBtn.disabled = false;
+        }
+    }
+
+    // 修复导出订单函数 - 使用更稳定的CSV导出
+    async function exportOrders() {
+        const btn = document.getElementById('export-orders-btn');
+        if (!btn) {
+            console.error('导出按钮未找到');
+            return;
+        }
+
+        const originalHTML = btn.innerHTML;
+
+        try {
             btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 导出中...';
             btn.disabled = true;
 
-            // 这里需要实现导出逻辑
-            await new Promise(resolve => setTimeout(resolve, 1000)); // 模拟导出过程
+            const ordersToExport = filteredOrders.length > 0 ? filteredOrders : allOrders;
 
-            showMessage('订单导出成功');
+            console.log('准备导出的订单数量:', ordersToExport.length);
+
+            if (ordersToExport.length === 0) {
+                showMessage('没有订单数据可导出', 'warning');
+                return;
+            }
+
+            // 使用更稳定的CSV导出方法
+            const csvData = convertOrdersToCSV(ordersToExport);
+            downloadFile(csvData, `订单数据_${getCurrentDate()}.csv`, 'text/csv;charset=utf-8;');
+
+            showMessage(`成功导出 ${ordersToExport.length} 条订单数据`, 'success');
+
         } catch (error) {
             console.error('导出订单失败:', error);
-            showMessage('导出订单失败', 'error');
+            showMessage('导出订单失败: ' + error.message, 'error');
         } finally {
-            btn.innerHTML = '<i class="fa fa-download"></i> 导出订单';
+            btn.innerHTML = originalHTML;
             btn.disabled = false;
         }
+    }
+
+    // 更稳定的CSV转换函数
+    function convertOrdersToCSV(orders) {
+        const headers = [
+            '订单号', '下单时间', '收银员ID', '会员ID',
+            '客户姓名', '订单总额', '实付金额', '优惠金额',
+            '支付状态', '支付方式', '支付时间', '使用积分', '获得积分'
+        ];
+
+        // CSV头部
+        let csvContent = '\uFEFF' + headers.join(',') + '\n';
+
+        // 数据行
+        orders.forEach(order => {
+            // 计算折扣金额
+            let discountAmount = order.discountAmount || 0;
+            if (order.actualPayment && order.totalAmount && order.actualPayment !== order.totalAmount) {
+                discountAmount = order.totalAmount - order.actualPayment;
+            }
+
+            const row = [
+                escapeCSVField(order.orderId || ''),
+                escapeCSVField(order.orderTime ? formatDateTime(order.orderTime) : ''),
+                escapeCSVField(order.cashierId || ''),
+                escapeCSVField(order.memberId || ''),
+                escapeCSVField(order.customerName || ''),
+                order.totalAmount || 0,
+                order.actualPayment || order.totalAmount || 0,
+                discountAmount,
+                escapeCSVField(getPaymentStatusText(order.paymentStatus)),
+                escapeCSVField(getPaymentTypeText(order.paymentType)),
+                escapeCSVField(order.payTime ? formatDateTime(order.payTime) : ''),
+                order.usedPoints || 0,
+                order.createdPoints || 0
+            ];
+
+            csvContent += row.join(',') + '\n';
+        });
+
+        return csvContent;
+    }
+
+    // CSV字段转义函数
+    function escapeCSVField(field) {
+        if (field === null || field === undefined) return '""';
+
+        const stringField = String(field);
+
+        // 如果包含逗号、换行符或引号，需要用引号包围并转义内部引号
+        if (stringField.includes(',') || stringField.includes('"') || stringField.includes('\n')) {
+            return '"' + stringField.replace(/"/g, '""') + '"';
+        }
+
+        return stringField;
+    }
+
+    // 通用文件下载函数
+    function downloadFile(data, filename, mimeType) {
+        const blob = new Blob([data], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+
+        // 兼容不同浏览器的下载方式
+        if (document.createEvent) {
+            const event = document.createEvent('MouseEvents');
+            event.initEvent('click', true, true);
+            link.dispatchEvent(event);
+        } else {
+            link.click();
+        }
+
+        // 清理URL对象
+        setTimeout(() => {
+            URL.revokeObjectURL(url);
+        }, 100);
+    }
+
+    // 获取当前日期函数
+    function getCurrentDate() {
+        const now = new Date();
+        return now.toISOString().split('T')[0].replace(/-/g, '');
     }
 
     // 工具函数

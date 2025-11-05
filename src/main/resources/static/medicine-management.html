@@ -27,7 +27,6 @@
         }
     </script>
 
-    <!-- 滚动样式修复（核心） -->
     <style type="text/tailwindcss">
         @layer utilities {
             .sidebar-item {
@@ -51,14 +50,12 @@
             .btn-outline {
                 @apply border border-gray-300 hover:bg-gray-50;
             }
-            /* 滚动容器：确保高度正确且滚动不被截断 */
             .main-content {
                 @apply flex-1 p-6 bg-gray-50;
-                height: calc(100vh - 64px); /* 精确计算：视口高度 - 顶部导航栏64px（h-16=4rem=64px） */
-                overflow-y: scroll; /* 强制显示滚动条 */
-                scrollbar-width: thin; /* Firefox兼容 */
+                height: calc(100vh - 64px);
+                overflow-y: scroll;
+                scrollbar-width: thin;
             }
-            /* 滚动条美化（Chrome/Edge） */
             .main-content::-webkit-scrollbar {
                 width: 8px;
             }
@@ -71,6 +68,37 @@
             }
             .main-content::-webkit-scrollbar-thumb:hover {
                 background: #9ca3af;
+            }
+
+            /* 选项卡样式 */
+            .tab-button {
+                @apply px-6 py-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition-colors;
+            }
+            .tab-button.active {
+                @apply border-primary text-primary font-medium;
+            }
+            .tab-content {
+                display: block;
+            }
+            .tab-content.hidden {
+                display: none;
+            }
+
+            /* 库存状态指示器 */
+            .stock-indicator {
+                @apply inline-flex items-center px-2 py-1 rounded-full text-xs font-medium;
+            }
+            .stock-high {
+                @apply bg-green-100 text-green-800;
+            }
+            .stock-medium {
+                @apply bg-yellow-100 text-yellow-800;
+            }
+            .stock-low {
+                @apply bg-orange-100 text-orange-800;
+            }
+            .stock-critical {
+                @apply bg-red-100 text-red-800;
             }
         }
     </style>
@@ -151,9 +179,9 @@
     </div>
 </aside>
 
-<!-- 主内容区（移除overflow-hidden限制） -->
+<!-- 主内容区 -->
 <main class="flex-1 flex flex-col">
-    <!-- 顶部导航栏（固定高度64px） -->
+    <!-- 顶部导航栏 -->
     <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
         <div class="flex items-center gap-4">
             <button id="sidebar-toggle" class="lg:hidden text-gray-500 hover:text-primary">
@@ -182,7 +210,7 @@
         </div>
     </header>
 
-    <!-- 可滚动内容区（核心修复） -->
+    <!-- 可滚动内容区 -->
     <div class="main-content">
         <!-- 页面标题与操作按钮 -->
         <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
@@ -305,28 +333,42 @@
             </div>
         </div>
 
-        <!-- 近效期药品提醒 -->
+        <!-- 库存预警提醒 -->
         <div class="card mb-6">
             <div class="p-6 border-b border-gray-100 flex justify-between items-center">
-                <h3 class="font-bold">近效期药品提醒</h3>
+                <h3 class="font-bold">库存预警提醒</h3>
                 <a href="inventory.html" class="text-primary hover:underline text-sm">查看全部</a>
             </div>
-            <div class="divide-y divide-gray-100" id="expiring-medicines">
-                <div class="p-4 hover:bg-gray-50 transition-colors flex justify-between items-center">
-                    <div>
-                        <h4 class="font-medium">盐酸氨溴索口服溶液</h4>
-                        <p class="text-sm text-gray-500">规格: 100ml/瓶 | 有效期至: 2023-06-15</p>
-                        <p class="text-sm text-accent mt-1">剩余 12 盒</p>
-                    </div>
-                    <button class="btn btn-outline text-sm" onclick="location.href='inventory.html'">处理</button>
+
+            <!-- 选项卡 -->
+            <div class="border-b border-gray-100">
+                <div class="flex">
+                    <button class="tab-button active px-6 py-3" data-tab="expiry">
+                        近效期药品
+                    </button>
+                    <button class="tab-button px-6 py-3" data-tab="lowstock">
+                        低库存药品
+                    </button>
+                    <button class="tab-button px-6 py-3" data-tab="outstock">
+                        缺货药品
+                    </button>
                 </div>
-                <div class="p-4 hover:bg-gray-50 transition-colors flex justify-between items-center">
-                    <div>
-                        <h4 class="font-medium">布洛芬缓释胶囊</h4>
-                        <p class="text-sm text-gray-500">规格: 20粒/盒 | 有效期至: 2023-07-20</p>
-                        <p class="text-sm text-accent mt-1">剩余 8 盒</p>
-                    </div>
-                    <button class="btn btn-outline text-sm" onclick="location.href='inventory.html'">处理</button>
+            </div>
+
+            <!-- 内容区域 -->
+            <div id="expiry-tab" class="tab-content">
+                <div class="divide-y divide-gray-100" id="expiring-medicines">
+                    <!-- 内容将通过JavaScript动态生成 -->
+                </div>
+            </div>
+            <div id="lowstock-tab" class="tab-content hidden">
+                <div class="divide-y divide-gray-100" id="low-stock-medicines">
+                    <!-- 内容将通过JavaScript动态生成 -->
+                </div>
+            </div>
+            <div id="outstock-tab" class="tab-content hidden">
+                <div class="divide-y divide-gray-100" id="out-stock-medicines">
+                    <!-- 内容将通过JavaScript动态生成 -->
                 </div>
             </div>
         </div>
@@ -346,23 +388,11 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">单价</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">今日销量</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">销售额</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">库存状态</th>
                     </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200" id="hot-products">
-                    <tr class="hover:bg-gray-50 transition-colors">
-                        <td class="px-6 py-4 whitespace-nowrap">复方感冒灵颗粒</td>
-                        <td class="px-6 py-4 whitespace-nowrap">10袋/盒</td>
-                        <td class="px-6 py-4 whitespace-nowrap">¥28.50</td>
-                        <td class="px-6 py-4 whitespace-nowrap">26</td>
-                        <td class="px-6 py-4 whitespace-nowrap">¥741.00</td>
-                    </tr>
-                    <tr class="hover:bg-gray-50 transition-colors">
-                        <td class="px-6 py-4 whitespace-nowrap">创可贴</td>
-                        <td class="px-6 py-4 whitespace-nowrap">100片/盒</td>
-                        <td class="px-6 py-4 whitespace-nowrap">¥15.80</td>
-                        <td class="px-6 py-4 whitespace-nowrap">32</td>
-                        <td class="px-6 py-4 whitespace-nowrap">¥505.60</td>
-                    </tr>
+                    <!-- 数据将通过JavaScript动态生成 -->
                     </tbody>
                 </table>
             </div>
@@ -383,6 +413,7 @@
     </div>
 </div>
 
+<!-- 功能脚本 -->
 <!-- 功能脚本 -->
 <script>
     // 错误处理
@@ -408,6 +439,17 @@
     let currentPeriod = 'week';
     let salesChart = null;
     let categoryChart = null;
+    let dataRefreshInterval = null;
+
+    // API基础URL - 根据您的实际后端地址调整
+    const API_BASE = 'http://localhost:8080/api';
+
+    // 库存预警配置
+    const STOCK_ALERT_CONFIG = {
+        expiryWarningDays: 60, // 近效期预警天数
+        lowStockThreshold: 0.3, // 低库存阈值（库存量/安全库存）
+        criticalStockThreshold: 0.1 // 严重低库存阈值
+    };
 
     // 初始化
     document.addEventListener('DOMContentLoaded', function() {
@@ -417,10 +459,38 @@
         initSidebar();
         initCharts();
         initEvents();
-        loadDashboardData();
+        initTabs(); // 新增：初始化选项卡
+
+        // 加载真实数据
+        updateDashboardData();
+
+        // 启动定时刷新（每30秒刷新一次）
+        startAutoRefresh();
 
         console.log('=== 控制台页面初始化完成 ===');
     });
+
+    // 启动自动刷新
+    function startAutoRefresh() {
+        // 清除现有定时器
+        if (dataRefreshInterval) {
+            clearInterval(dataRefreshInterval);
+        }
+
+        // 每30秒刷新一次数据
+        dataRefreshInterval = setInterval(() => {
+            console.log('自动刷新数据...');
+            updateDashboardData();
+        }, 30000); // 30秒
+    }
+
+    // 停止自动刷新
+    function stopAutoRefresh() {
+        if (dataRefreshInterval) {
+            clearInterval(dataRefreshInterval);
+            dataRefreshInterval = null;
+        }
+    }
 
     // 日期时间
     function initDateTime() {
@@ -453,9 +523,25 @@
 
     // 图表初始化
     function initCharts() {
+        // 销毁已存在的图表实例
+        if (salesChart) {
+            salesChart.destroy();
+            salesChart = null;
+        }
+        if (categoryChart) {
+            categoryChart.destroy();
+            categoryChart = null;
+        }
+
         // 销售趋势图
         const salesChartCanvas = document.getElementById('sales-chart');
         if (salesChartCanvas) {
+            // 检查 canvas 是否已被使用
+            const existingChart = Chart.getChart(salesChartCanvas);
+            if (existingChart) {
+                existingChart.destroy();
+            }
+
             salesChart = new Chart(salesChartCanvas, {
                 type: 'line',
                 data: {
@@ -466,18 +552,51 @@
                         borderColor: '#165DFF',
                         backgroundColor: 'rgba(22,93,255,0.1)',
                         tension: 0.3,
-                        fill: true
+                        fill: true,
+                        borderWidth: 2,
+                        pointBackgroundColor: '#165DFF',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: 'rgba(0,0,0,0.8)',
+                            titleFont: { size: 12 },
+                            bodyFont: { size: 12 },
+                            padding: 10
+                        }
+                    },
                     scales: {
                         y: {
                             beginAtZero: true,
-                            title: { display: true, text: '销售额 (¥)' }
+                            grid: {
+                                color: 'rgba(0,0,0,0.05)'
+                            },
+                            title: {
+                                display: true,
+                                text: '销售额 (¥)',
+                                font: { size: 12 }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
                         }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
                     }
                 }
             });
@@ -486,19 +605,49 @@
         // 分类占比图
         const categoryChartCanvas = document.getElementById('category-chart');
         if (categoryChartCanvas) {
+            // 检查 canvas 是否已被使用
+            const existingChart = Chart.getChart(categoryChartCanvas);
+            if (existingChart) {
+                existingChart.destroy();
+            }
+
             categoryChart = new Chart(categoryChartCanvas, {
-                type: 'pie',
+                type: 'doughnut',
                 data: {
                     labels: ['处方药','非处方药','保健品','医疗器械'],
                     datasets: [{
                         data: [35,45,15,5],
-                        backgroundColor: ['#165DFF', '#36B37E', '#FFAB00', '#FF5630']
+                        backgroundColor: ['#165DFF', '#36B37E', '#FFAB00', '#FF5630'],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom' } }
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 15,
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                font: { size: 11 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.raw || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = Math.round((value / total) * 100);
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    },
+                    cutout: '60%'
                 }
             });
         }
@@ -509,31 +658,13 @@
         // 刷新数据
         const refreshBtn = getSafeElement('refresh-data');
         if (refreshBtn) {
-            refreshBtn.addEventListener('click', function() {
-                const btn = this;
-                btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 刷新中...';
-                btn.disabled = true;
-                setTimeout(() => {
-                    loadDashboardData();
-                    btn.innerHTML = '<i class="fa fa-refresh"></i> 刷新数据';
-                    btn.disabled = false;
-                }, 800);
-            });
+            refreshBtn.addEventListener('click', refreshDashboardData);
         }
 
         // 导出报表
         const exportBtn = getSafeElement('export-report');
         if (exportBtn) {
-            exportBtn.addEventListener('click', function() {
-                const btn = this;
-                btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 导出中...';
-                btn.disabled = true;
-                setTimeout(() => {
-                    alert('报表导出成功');
-                    btn.innerHTML = '<i class="fa fa-download"></i> 导出报表';
-                    btn.disabled = false;
-                }, 1000);
-            });
+            exportBtn.addEventListener('click', exportDashboardData);
         }
 
         // 周期切换
@@ -563,80 +694,334 @@
         }
     }
 
-    // 加载数据
-    function loadDashboardData() {
-        console.log('加载控制台数据...');
-        // 数据已在页面初始化时填充，此处模拟刷新效果
-    }
+    // 初始化选项卡
+    function initTabs() {
+        const tabButtons = document.querySelectorAll('.tab-button');
+        tabButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                // 移除所有活动状态
+                tabButtons.forEach(btn => {
+                    btn.classList.remove('active');
+                });
 
-    // 按周期更新销售图表
-    function updateSalesChartByPeriod() {
-        if (!salesChart) return;
+                // 添加当前活动状态
+                this.classList.add('active');
 
-        const data = {
-            day: {
-                labels: ['00:00','03:00','06:00','09:00','12:00','15:00','18:00','21:00'],
-                values: [320, 150, 80, 650, 1200, 980, 1500, 850]
-            },
-            week: {
-                labels: ['周一','周二','周三','周四','周五','周六','周日'],
-                values: [1580, 1820, 1650, 2100, 2350, 2080, 1000]
-            },
-            month: {
-                labels: ['1月','2月','3月','4月','5月','6月'],
-                values: [15000, 21000, 18000, 24000, 23000, 28000]
-            }
-        };
+                // 隐藏所有内容
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.add('hidden');
+                });
 
-        const periodData = data[currentPeriod];
-        if (periodData) {
-            salesChart.data.labels = periodData.labels;
-            salesChart.data.datasets[0].data = periodData.values;
-            salesChart.update();
-        }
-    }
-
-    // 触发默认周期点击事件
-    const weekBtn = document.querySelector('[data-period="week"]');
-    if (weekBtn) {
-        weekBtn.click();
-    }
-
-    // 加载所有控制台数据
-    async function loadAllDashboardData() {
-        try {
-            console.log('开始加载所有控制台数据...');
-
-            // 检查API是否可用
-            if (!window.api) {
-                console.warn('API未就绪，使用模拟数据');
-                updateWithMockData();
-                return;
-            }
-
-            // 加载概览统计数据
-            if (window.api.statsAPI && typeof window.api.statsAPI.getDashboardStats === 'function') {
-                try {
-                    const dashboardStats = await window.api.statsAPI.getDashboardStats();
-                    updateSummaryCards(dashboardStats);
-                } catch (error) {
-                    console.error('加载统计数据失败:', error);
-                    updateWithMockData();
+                // 显示对应内容
+                const tabId = this.getAttribute('data-tab') + '-tab';
+                const tabContent = document.getElementById(tabId);
+                if (tabContent) {
+                    tabContent.classList.remove('hidden');
                 }
-            }
+            });
+        });
+    }
 
-            // 初始化销售趋势图表
-            initSalesChart();
+    // 获取库存状态
+    function getStockStatus(currentStock, safetyStock) {
+        const stockRatio = currentStock / safetyStock;
 
-            // 初始化药品分类占比图表
-            initCategoryChart();
-
-        } catch (error) {
-            console.error('加载数据失败:', error);
-            if (window.api && window.api.showMessage) {
-                window.api.showMessage('加载数据失败，请重试', 'error');
-            }
+        if (currentStock === 0) {
+            return { level: 'critical', text: '缺货', class: 'stock-critical' };
+        } else if (stockRatio <= STOCK_ALERT_CONFIG.criticalStockThreshold) {
+            return { level: 'critical', text: '严重不足', class: 'stock-critical' };
+        } else if (stockRatio <= STOCK_ALERT_CONFIG.lowStockThreshold) {
+            return { level: 'low', text: '库存不足', class: 'stock-low' };
+        } else if (stockRatio <= 0.8) {
+            return { level: 'medium', text: '库存一般', class: 'stock-medium' };
+        } else {
+            return { level: 'high', text: '库存充足', class: 'stock-high' };
         }
+    }
+
+    // 更新库存预警显示
+    function updateStockAlerts(alerts) {
+        if (!alerts) return;
+
+        console.log('更新库存预警数据:', alerts);
+
+        // 更新近效期药品
+        updateExpiringMedicines(alerts.expiry || []);
+
+        // 更新低库存药品
+        updateLowStockMedicines(alerts.lowStock || []);
+
+        // 更新缺货药品
+        updateOutStockMedicines(alerts.outStock || []);
+    }
+
+    // 更新近效期药品列表
+    function updateExpiringMedicines(medicines) {
+        const container = document.getElementById('expiring-medicines');
+        if (!container) return;
+
+        if (medicines.length === 0) {
+            container.innerHTML = `
+                <div class="p-4 text-center text-gray-500">
+                    <i class="fa fa-check-circle text-green-500 text-2xl mb-2"></i>
+                    <p>暂无近效期药品</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = medicines.map(medicine => {
+            // 适配不同的数据结构
+            const name = medicine.medicineName || medicine.name || '未知药品';
+            const spec = medicine.specification || medicine.spec || '未知规格';
+            const batchNumber = medicine.batchNumber || medicine.batch || '未知批号';
+            const expiryDate = medicine.expiryDate || '未知日期';
+            const currentStock = medicine.currentStock || medicine.remainingStock || medicine.remaining || 0;
+            const unit = medicine.unit || '盒';
+            const daysToExpiry = medicine.daysToExpiry || medicine.days || 0;
+            const priority = medicine.priority || 'medium';
+
+            return `
+            <div class="p-4 hover:bg-gray-50 transition-colors flex justify-between items-center border-l-4 ${
+                priority === 'high' ? 'border-accent' :
+                priority === 'medium' ? 'border-yellow-500' : 'border-blue-500'
+            }">
+                <div class="flex-1">
+                    <div class="flex items-center gap-3 mb-2">
+                        <h4 class="font-medium">${name}</h4>
+                        <span class="stock-indicator bg-red-100 text-red-800">
+                            近效期 (${daysToExpiry}天)
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="text-gray-500">规格:</span>
+                            <span>${spec}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-500">批号:</span>
+                            <span>${batchNumber}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-500">有效期至:</span>
+                            <span class="text-accent">${expiryDate}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-500">当前库存:</span>
+                            <span>${currentStock} ${unit}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex gap-2 ml-4">
+                    <button class="btn btn-outline text-sm" onclick="handleStockAlert('${medicine.medicineId || medicine.id}', 'view')">
+                        查看
+                    </button>
+                    <button class="btn btn-primary text-sm" onclick="handleStockAlert('${medicine.medicineId || medicine.id}', 'process')">
+                        处理
+                    </button>
+                </div>
+            </div>
+        `}).join('');
+    }
+
+    // 更新低库存药品列表
+    function updateLowStockMedicines(medicines) {
+        const container = document.getElementById('low-stock-medicines');
+        if (!container) return;
+
+        if (medicines.length === 0) {
+            container.innerHTML = `
+                <div class="p-4 text-center text-gray-500">
+                    <i class="fa fa-check-circle text-green-500 text-2xl mb-2"></i>
+                    <p>暂无低库存药品</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = medicines.map(medicine => {
+            // 适配不同的数据结构
+            const name = medicine.medicineName || medicine.name || '未知药品';
+            const spec = medicine.specification || medicine.spec || '未知规格';
+            const batchNumber = medicine.batchNumber || medicine.batch || '未知批号';
+            const currentStock = medicine.currentStock || medicine.remainingStock || medicine.remaining || 0;
+            const safetyStock = medicine.safetyStock || medicine.minStock || 0;
+            const unit = medicine.unit || '盒';
+            const priority = medicine.priority || 'medium';
+
+            return `
+            <div class="p-4 hover:bg-gray-50 transition-colors flex justify-between items-center border-l-4 ${
+                priority === 'high' ? 'border-orange-500' : 'border-yellow-500'
+            }">
+                <div class="flex-1">
+                    <div class="flex items-center gap-3 mb-2">
+                        <h4 class="font-medium">${name}</h4>
+                        <span class="stock-indicator ${
+                            priority === 'high' ? 'bg-orange-100 text-orange-800' : 'bg-yellow-100 text-yellow-800'
+                        }">
+                            ${priority === 'high' ? '严重不足' : '库存不足'}
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="text-gray-500">规格:</span>
+                            <span>${spec}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-500">批号:</span>
+                            <span>${batchNumber}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-500">当前库存:</span>
+                            <span class="${priority === 'high' ? 'text-orange-600' : 'text-yellow-600'}">
+                                ${currentStock} ${unit}
+                            </span>
+                        </div>
+                        <div>
+                            <span class="text-gray-500">安全库存:</span>
+                            <span>${safetyStock} ${unit}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex gap-2 ml-4">
+                    <button class="btn btn-outline text-sm" onclick="handleStockAlert('${medicine.medicineId || medicine.id}', 'view')">
+                        查看
+                    </button>
+                    <button class="btn btn-primary text-sm" onclick="handleStockAlert('${medicine.medicineId || medicine.id}', 'process')">
+                        补货
+                    </button>
+                </div>
+            </div>
+        `}).join('');
+    }
+
+    // 更新缺货药品列表
+    function updateOutStockMedicines(medicines) {
+        const container = document.getElementById('out-stock-medicines');
+        if (!container) return;
+
+        if (medicines.length === 0) {
+            container.innerHTML = `
+                <div class="p-4 text-center text-gray-500">
+                    <i class="fa fa-check-circle text-green-500 text-2xl mb-2"></i>
+                    <p>暂无缺货药品</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = medicines.map(medicine => {
+            // 适配不同的数据结构
+            const name = medicine.medicineName || medicine.name || '未知药品';
+            const spec = medicine.specification || medicine.spec || '未知规格';
+            const batchNumber = medicine.batchNumber || medicine.batch || '-';
+            const currentStock = medicine.currentStock || 0;
+            const safetyStock = medicine.safetyStock || medicine.minStock || 0;
+            const unit = medicine.unit || '盒';
+            const lastRestock = medicine.lastRestock || '未知日期';
+
+            return `
+            <div class="p-4 hover:bg-gray-50 transition-colors flex justify-between items-center border-l-4 border-red-500">
+                <div class="flex-1">
+                    <div class="flex items-center gap-3 mb-2">
+                        <h4 class="font-medium">${name}</h4>
+                        <span class="stock-indicator bg-red-100 text-red-800">
+                            缺货
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="text-gray-500">规格:</span>
+                            <span>${spec}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-500">批号:</span>
+                            <span>${batchNumber}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-500">安全库存:</span>
+                            <span>${safetyStock} ${unit}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-500">最后补货:</span>
+                            <span>${lastRestock}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex gap-2 ml-4">
+                    <button class="btn btn-outline text-sm" onclick="handleStockAlert('${medicine.medicineId || medicine.id}', 'view')">
+                        查看
+                    </button>
+                    <button class="btn btn-primary text-sm" onclick="handleStockAlert('${medicine.medicineId || medicine.id}', 'process')">
+                        紧急补货
+                    </button>
+                </div>
+            </div>
+        `}).join('');
+    }
+
+    // 更新热销药品表格
+    function updateHotProducts(products) {
+        const container = document.getElementById('hot-products');
+        if (!container) return;
+
+        console.log('更新热销药品:', products);
+
+        if (products.length === 0) {
+            container.innerHTML = `
+                <tr>
+                    <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                        暂无热销药品数据
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        container.innerHTML = products.map(product => {
+            // 适配不同的数据结构
+            const name = product.medicineName || product.name || '未知药品';
+            const spec = product.specification || product.spec || '未知规格';
+            const price = product.unitPrice || product.price || 0;
+            const sales = product.todaySales || product.sales || 0;
+            const amount = product.todayAmount || product.amount || 0;
+            const currentStock = product.currentStock || 0;
+            const safetyStock = product.safetyStock || product.minStock || 1;
+
+            // 计算库存状态
+            const stockStatus = getStockStatus(currentStock, safetyStock);
+
+            return `
+            <tr class="hover:bg-gray-50 transition-colors">
+                <td class="px-6 py-4 whitespace-nowrap">${name}</td>
+                <td class="px-6 py-4 whitespace-nowrap">${spec}</td>
+                <td class="px-6 py-4 whitespace-nowrap">¥${price}</td>
+                <td class="px-6 py-4 whitespace-nowrap">${sales}</td>
+                <td class="px-6 py-4 whitespace-nowrap">¥${amount}</td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="stock-indicator ${stockStatus.class}">
+                        ${stockStatus.text}
+                    </span>
+                </td>
+            </tr>
+        `}).join('');
+    }
+
+    // 处理库存预警
+    function handleStockAlert(alertId, action) {
+        if (action === 'view') {
+            window.location.href = `inventory.html?highlight=${alertId}`;
+        } else if (action === 'process') {
+            // 显示处理对话框
+            showStockAlertDialog(alertId);
+        }
+    }
+
+    // 显示库存预警处理对话框
+    function showStockAlertDialog(alertId) {
+        // 这里可以显示一个模态对话框来处理库存预警
+        // 由于时间关系，我们简单跳转到库存管理页面
+        window.location.href = `inventory.html?action=process&id=${alertId}`;
     }
 
     // 使用模拟数据
@@ -651,19 +1036,198 @@
             ordersChange: 8.2,
             memberConsumption: 32,
             memberChange: 5.3,
-            stockAlerts: 5
+            lowStockCount: 5
         };
 
         updateSummaryCards(mockData);
+
+        // 更新图表数据
+        const mockTrendData = getMockTrendData(currentPeriod);
+        updateSalesChart(mockTrendData);
+
+        const mockCategoryData = {
+            labels: ['处方药','非处方药','保健品','医疗器械'],
+            data: [35, 45, 15, 5],
+            colors: ['#165DFF', '#36B37E', '#FFAB00', '#FF5630']
+        };
+        updateCategoryChart(mockCategoryData);
+
+        // 更新库存预警数据
+        const mockStockAlerts = getMockStockAlerts();
+        updateStockAlerts(mockStockAlerts);
+
+        // 更新热销药品
+        const mockHotProducts = [
+            {
+                id: '1',
+                name: "复方感冒灵颗粒",
+                spec: "10袋/盒",
+                price: 28.50,
+                sales: 26,
+                amount: 741.00,
+                currentStock: 45,
+                safetyStock: 50
+            },
+            {
+                id: '2',
+                name: "创可贴",
+                spec: "100片/盒",
+                price: 15.80,
+                sales: 32,
+                amount: 505.60,
+                currentStock: 12,
+                safetyStock: 30
+            },
+            {
+                id: '3',
+                name: "板蓝根颗粒",
+                spec: "20袋/盒",
+                price: 25.00,
+                sales: 18,
+                amount: 450.00,
+                currentStock: 8,
+                safetyStock: 25
+            },
+            {
+                id: '4',
+                name: "维生素C片",
+                spec: "60片/瓶",
+                price: 35.00,
+                sales: 15,
+                amount: 525.00,
+                currentStock: 22,
+                safetyStock: 20
+            }
+        ];
+        updateHotProducts(mockHotProducts);
+    }
+
+    // 获取模拟趋势数据
+    function getMockTrendData(period) {
+        const data = {
+            day: {
+                labels: ['00:00','03:00','06:00','09:00','12:00','15:00','18:00','21:00'],
+                data: [320, 150, 80, 650, 1200, 980, 1500, 850]
+            },
+            week: {
+                labels: ['周一','周二','周三','周四','周五','周六','周日'],
+                data: [1580, 1820, 1650, 2100, 2350, 2080, 1000]
+            },
+            month: {
+                labels: ['第1周','第2周','第3周','第4周'],
+                data: [15000, 21000, 18000, 24000]
+            }
+        };
+
+        return data[period] || data.week;
+    }
+
+    // 获取模拟库存预警数据
+    function getMockStockAlerts() {
+        return {
+            expiry: [
+                {
+                    id: '1',
+                    name: '盐酸氨溴索口服溶液',
+                    spec: '100ml/瓶',
+                    batchNumber: 'BH20230601',
+                    expiryDate: '2023-06-15',
+                    currentStock: 12,
+                    safetyStock: 20,
+                    unit: '盒',
+                    type: 'expiry',
+                    priority: 'high',
+                    daysToExpiry: 15
+                },
+                {
+                    id: '2',
+                    name: '布洛芬缓释胶囊',
+                    spec: '20粒/盒',
+                    batchNumber: 'BH20230701',
+                    expiryDate: '2023-07-20',
+                    currentStock: 8,
+                    safetyStock: 15,
+                    unit: '盒',
+                    type: 'expiry',
+                    priority: 'medium',
+                    daysToExpiry: 45
+                },
+                {
+                    id: '3',
+                    name: '阿莫西林胶囊',
+                    spec: '24粒/盒',
+                    batchNumber: 'BH20230801',
+                    expiryDate: '2023-08-10',
+                    currentStock: 15,
+                    safetyStock: 25,
+                    unit: '盒',
+                    type: 'expiry',
+                    priority: 'low',
+                    daysToExpiry: 65
+                }
+            ],
+            lowStock: [
+                {
+                    id: '4',
+                    name: '维生素C片',
+                    spec: '100片/瓶',
+                    batchNumber: 'BH20230401',
+                    currentStock: 8,
+                    safetyStock: 15,
+                    unit: '瓶',
+                    type: 'lowstock',
+                    priority: 'medium'
+                },
+                {
+                    id: '5',
+                    name: '复方甘草片',
+                    spec: '100片/瓶',
+                    batchNumber: 'BH20230501',
+                    currentStock: 4,
+                    safetyStock: 20,
+                    unit: '瓶',
+                    type: 'lowstock',
+                    priority: 'high'
+                }
+            ],
+            outStock: [
+                {
+                    id: '6',
+                    name: '医用口罩',
+                    spec: '50只/盒',
+                    batchNumber: '-',
+                    currentStock: 0,
+                    safetyStock: 20,
+                    unit: '盒',
+                    type: 'outstock',
+                    priority: 'high',
+                    lastRestock: '2023-04-01'
+                },
+                {
+                    id: '7',
+                    name: '体温计',
+                    spec: '电子',
+                    batchNumber: '-',
+                    currentStock: 0,
+                    safetyStock: 5,
+                    unit: '个',
+                    type: 'outstock',
+                    priority: 'medium',
+                    lastRestock: '2023-03-15'
+                }
+            ]
+        };
     }
 
     // 更新统计卡片数据
     function updateSummaryCards(data) {
         if (!data) return;
 
+        console.log('更新统计卡片数据:', data);
+
         // 今日销售额
         const todaySalesEl = getSafeElement('todaySales');
-        if (todaySalesEl) todaySalesEl.textContent = `¥${data.todaySales?.toLocaleString() || '0'}`;
+        if (todaySalesEl) todaySalesEl.textContent = `¥${(data.todaySales || 0).toLocaleString()}`;
 
         // 销售额变化
         const salesChangeEl = getSafeElement('salesChange');
@@ -705,81 +1269,73 @@
 
         // 库存预警
         const lowStockCountEl = getSafeElement('lowStockCount');
-        if (lowStockCountEl) lowStockCountEl.textContent = `${data.stockAlerts || 0} 种`;
+        if (lowStockCountEl) lowStockCountEl.textContent = `${data.lowStockCount || data.stockAlerts || 0} 种`;
 
         // 库存变化
         const stockChangeEl = getSafeElement('stockChange');
         if (stockChangeEl) {
             stockChangeEl.innerHTML = `
                 <i class="fa fa-arrow-up mr-1 text-accent"></i>
-                ${data.stockAlerts || 0} 种
+                ${data.lowStockCount || data.stockAlerts || 0} 种
             `;
         }
     }
 
-    // 销售趋势图表
-    function initSalesChart() {
-        const ctx = document.getElementById('sales-chart');
-        if (!ctx) return;
+    // 更新销售趋势图表
+    function updateSalesChart(trendData) {
+        if (!trendData) return;
 
-        // 如果已有图表实例，先销毁
-        if (salesChart) {
-            salesChart.destroy();
+        // 如果图表不存在，重新初始化
+        if (!salesChart) {
+            initCharts();
+            return;
         }
 
-        salesChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: ['周一','周二','周三','周四','周五','周六','周日'],
-                datasets: [{
-                    label: '销售额',
-                    data: [1580, 1820, 1650, 2100, 2350, 2080, 1000],
-                    borderColor: '#165DFF',
-                    backgroundColor: 'rgba(22, 93, 255, 0.1)',
-                    tension: 0.4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'top',
-                    }
-                }
-            }
-        });
+        // 安全地更新图表数据
+        try {
+            salesChart.data.labels = trendData.labels || salesChart.data.labels;
+            salesChart.data.datasets[0].data = trendData.data || salesChart.data.datasets[0].data;
+            salesChart.update('none'); // 使用 'none' 避免动画冲突
+            console.log('销售趋势图表更新成功');
+        } catch (error) {
+            console.error('更新销售图表失败:', error);
+            // 如果更新失败，重新初始化图表
+            setTimeout(() => {
+                initCharts();
+                // 重新尝试更新数据
+                setTimeout(() => updateSalesChart(trendData), 100);
+            }, 100);
+        }
     }
 
-    // 药品分类占比图表
-    function initCategoryChart() {
-        const ctx = document.getElementById('category-chart');
-        if (!ctx) return;
+    // 更新分类占比图表
+    function updateCategoryChart(categoryData) {
+        if (!categoryData) return;
 
-        // 如果已有图表实例，先销毁
-        if (categoryChart) {
-            categoryChart.destroy();
+        // 如果图表不存在，重新初始化
+        if (!categoryChart) {
+            initCharts();
+            return;
         }
 
-        categoryChart = new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: ['处方药','非处方药','保健品','医疗器械'],
-                datasets: [{
-                    data: [35, 45, 15, 5],
-                    backgroundColor: ['#165DFF', '#36B37E', '#FFAB00', '#FF5630']
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom'
-                    }
-                }
+        // 安全地更新图表数据
+        try {
+            categoryChart.data.labels = categoryData.labels || categoryChart.data.labels;
+            categoryChart.data.datasets[0].data = categoryData.data || categoryChart.data.datasets[0].data;
+            if (categoryData.colors) {
+                categoryChart.data.datasets[0].backgroundColor = categoryData.colors;
             }
-        });
+            categoryChart.update('none'); // 使用 'none' 避免动画冲突
+            console.log('分类占比图表更新成功');
+        } catch (error) {
+            console.error('更新分类图表失败:', error);
+            // 如果更新失败，重新初始化图表
+            setTimeout(() => {
+                initCharts();
+                // 重新尝试更新数据
+                setTimeout(() => updateCategoryChart(categoryData), 100);
+            }, 100);
+        }
     }
 
     // 导出报表功能
@@ -788,30 +1344,205 @@
             const button = getSafeElement('export-report');
             if (button) {
                 button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 导出中...';
+                button.disabled = true;
             }
 
-            // 模拟导出过程
-            setTimeout(() => {
-                if (button) {
-                    button.innerHTML = '<i class="fa fa-download"></i> 导出报表';
+            const response = await fetch(`${API_BASE}/export/dashboard-report`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
                 }
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `药房控制台报表_${new Date().toISOString().slice(0,10)}.json`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+
                 alert('报表导出成功！');
-            }, 1500);
+            } else {
+                throw new Error('导出失败');
+            }
 
         } catch (error) {
             console.error('导出失败:', error);
+            alert('导出失败，请重试');
+        } finally {
             const button = getSafeElement('export-report');
             if (button) {
                 button.innerHTML = '<i class="fa fa-download"></i> 导出报表';
+                button.disabled = false;
             }
-            alert('导出失败，请重试');
         }
     }
 
-    // 绑定导出按钮事件
-    const exportBtn = getSafeElement('export-report');
-    if (exportBtn) {
-        exportBtn.addEventListener('click', exportDashboardData);
+    // 刷新数据功能
+    async function refreshDashboardData() {
+        try {
+            const button = getSafeElement('refresh-data');
+            if (button) {
+                button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 刷新中...';
+                button.disabled = true;
+            }
+
+            // 停止自动刷新，避免冲突
+            stopAutoRefresh();
+
+            const response = await fetch(`${API_BASE}/dashboard/refresh`, {
+                method: 'POST'
+            });
+
+            if (response.ok) {
+                await updateDashboardData();
+                // 显示成功提示
+                showNotification('数据刷新成功', 'success');
+            } else {
+                throw new Error('刷新失败');
+            }
+
+        } catch (error) {
+            console.error('刷新数据失败:', error);
+            showNotification('刷新数据失败，请重试', 'error');
+        } finally {
+            const button = getSafeElement('refresh-data');
+            if (button) {
+                button.innerHTML = '<i class="fa fa-refresh"></i> 刷新数据';
+                button.disabled = false;
+            }
+
+            // 重新启动自动刷新
+            startAutoRefresh();
+        }
+    }
+
+    // 显示通知
+    function showNotification(message, type = 'info') {
+        // 简单的通知实现
+        console.log(`${type}: ${message}`);
+        // 可以在这里添加更复杂的通知UI
+    }
+
+    // 更新控制台数据
+    async function updateDashboardData() {
+        console.log('开始更新控制台数据...');
+
+        try {
+            // 获取统计数据
+            console.log('获取统计数据...');
+            const statsResponse = await fetch(`${API_BASE}/dashboard/stats`);
+            if (!statsResponse.ok) throw new Error('统计数据请求失败');
+            const statsResult = await statsResponse.json();
+            console.log('统计API响应:', statsResult);
+
+            if (statsResult.success && statsResult.data) {
+                updateSummaryCards(statsResult.data);
+            } else {
+                throw new Error('统计数据格式错误');
+            }
+
+            // 获取销售趋势数据
+            console.log('获取销售趋势数据...');
+            const trendResponse = await fetch(`${API_BASE}/dashboard/sales-trend?period=${currentPeriod}`);
+            if (!trendResponse.ok) throw new Error('销售趋势数据请求失败');
+            const trendResult = await trendResponse.json();
+            console.log('销售趋势API响应:', trendResult);
+
+            if (trendResult.success && trendResult.data) {
+                updateSalesChart(trendResult.data);
+            } else {
+                throw new Error('销售趋势数据格式错误');
+            }
+
+            // 获取分类占比数据
+            console.log('获取分类占比数据...');
+            const categoryResponse = await fetch(`${API_BASE}/dashboard/category-distribution`);
+            if (!categoryResponse.ok) throw new Error('分类占比数据请求失败');
+            const categoryResult = await categoryResponse.json();
+            console.log('分类占比API响应:', categoryResult);
+
+            if (categoryResult.success && categoryResult.data) {
+                updateCategoryChart(categoryResult.data);
+            } else {
+                throw new Error('分类占比数据格式错误');
+            }
+
+            // 获取库存预警数据
+            console.log('获取库存预警数据...');
+            const stockAlertResponse = await fetch(`${API_BASE}/dashboard/stock-alerts`);
+            if (!stockAlertResponse.ok) throw new Error('库存预警数据请求失败');
+            const stockAlertResult = await stockAlertResponse.json();
+            console.log('库存预警API响应:', stockAlertResult);
+
+            if (stockAlertResult.success && stockAlertResult.data) {
+                updateStockAlerts(stockAlertResult.data);
+            } else {
+                throw new Error('库存预警数据格式错误');
+            }
+
+            // 获取热销药品
+            console.log('获取热销药品数据...');
+            const hotProductsResponse = await fetch(`${API_BASE}/dashboard/hot-products`);
+            if (!hotProductsResponse.ok) throw new Error('热销药品数据请求失败');
+            const hotProductsResult = await hotProductsResponse.json();
+            console.log('热销药品API响应:', hotProductsResult);
+
+            if (hotProductsResult.success && hotProductsResult.data) {
+                updateHotProducts(hotProductsResult.data);
+            } else {
+                throw new Error('热销药品数据格式错误');
+            }
+
+            console.log('控制台数据更新完成');
+
+        } catch (error) {
+            console.error('更新数据失败:', error);
+            // 使用模拟数据作为备选
+            console.log('使用模拟数据作为备选方案');
+            updateWithMockData();
+        }
+    }
+
+    // 按周期更新销售图表
+    function updateSalesChartByPeriod() {
+        if (!salesChart) {
+            initCharts();
+        }
+
+        console.log(`切换销售趋势周期: ${currentPeriod}`);
+
+        // 从后端获取数据
+        fetch(`${API_BASE}/dashboard/sales-trend?period=${currentPeriod}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('网络响应不正常');
+                }
+                return response.json();
+            })
+            .then(result => {
+                if (result.success && result.data) {
+                    updateSalesChart(result.data);
+                } else {
+                    throw new Error('销售趋势数据格式错误');
+                }
+            })
+            .catch(error => {
+                console.error('获取销售趋势数据失败:', error);
+                // 使用模拟数据作为备选
+                const mockData = getMockTrendData(currentPeriod);
+                updateSalesChart(mockData);
+            });
+    }
+
+    // 触发默认周期点击事件
+    const weekBtn = document.querySelector('[data-period="week"]');
+    if (weekBtn) {
+        weekBtn.click();
     }
 </script>
 </body>
