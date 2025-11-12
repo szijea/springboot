@@ -1,0 +1,1593 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智慧药房收银系统 - 药品档案管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+
+    <!-- 配置Tailwind（与其他页面一致） -->
+    <script>
+        tailwind.config = {
+          theme: {
+            extend: {
+              colors: {
+                primary: '#165DFF',
+                secondary: '#36B37E',
+                accent: '#FF5630',
+              },
+              fontFamily: {
+                inter: ['Inter', 'system-ui', 'sans-serif'],
+              },
+            },
+          }
+        }
+    </script>
+
+    <style type="text/tailwindcss">
+        @layer utilities {
+          .sidebar-item {
+            @apply flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 cursor-pointer;
+          }
+          .sidebar-item.active {
+            @apply bg-primary text-white;
+          }
+          .sidebar-item:not(.active):hover {
+            @apply bg-gray-100;
+          }
+          .card {
+            @apply bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden transition-all duration-300 hover:shadow-md;
+          }
+          .btn {
+            @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2;
+          }
+          .btn-primary {
+            @apply bg-primary text-white hover:bg-primary/90;
+          }
+          .btn-outline {
+            @apply border border-gray-300 hover:bg-gray-50;
+          }
+          .input {
+            @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all;
+          }
+          .badge {
+            @apply px-2 py-1 rounded-full text-xs font-medium;
+          }
+
+          /* 药品状态指示器 */
+          .medicine-indicator {
+            @apply inline-flex items-center px-2 py-1 rounded-full text-xs font-medium;
+          }
+          .medicine-active {
+            @apply bg-green-100 text-green-800;
+          }
+          .medicine-inactive {
+            @apply bg-gray-100 text-gray-800;
+          }
+          .medicine-prescription {
+            @apply bg-blue-100 text-blue-800;
+          }
+          .medicine-otc {
+            @apply bg-yellow-100 text-yellow-800;
+          }
+
+          /* 修复滚动问题 */
+          .main-content-container {
+            height: calc(100vh - 64px);
+            overflow-y: auto;
+          }
+
+          /* 分页样式 */
+          .pagination-btn {
+            @apply w-8 h-8 flex items-center justify-center rounded border border-gray-300 hover:bg-gray-50 transition-colors;
+          }
+          .pagination-btn.active {
+            @apply border-primary bg-primary text-white;
+          }
+          .pagination-btn.disabled {
+            @apply text-gray-400 cursor-not-allowed;
+          }
+
+          /* 模态框样式 */
+          .modal-overlay {
+            @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50;
+          }
+          .modal-content {
+            @apply bg-white rounded-xl shadow-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto;
+          }
+
+          /* 确保隐藏类正常工作 */
+          .hidden {
+            display: none !important;
+          }
+        }
+    </style>
+</head>
+
+<body class="font-inter bg-gray-50 text-gray-800 min-h-screen flex overflow-hidden">
+<!-- 注入统一导航（侧边栏 + 顶部） -->
+<div id="common-nav" data-active="medicine-archive"></div>
+
+<main class="flex-1 flex flex-col pt-16">
+    <!-- 内容区域 - 修复滚动 -->
+    <div class="main-content-container p-6 bg-gray-50">
+        <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+            <div>
+                <h2 class="text-[clamp(1.25rem,2vw,1.75rem)] font-bold">药品档案管理</h2>
+                <p class="text-gray-500">管理药品基本信息与档案</p>
+            </div>
+            <div class="flex gap-3">
+                <button class="btn btn-outline" id="export-medicines">
+                    <i class="fa fa-download"></i> 导出档案
+                </button>
+                <button id="batch-operate-btn" class="btn btn-outline">
+                    <i class="fa fa-cogs"></i> 批量操作
+                </button>
+                <button class="btn btn-primary" id="add-medicine">
+                    <i class="fa fa-plus"></i> 新增药品
+                </button>
+            </div>
+        </div>
+
+        <!-- 药品统计卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+            <div class="card p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-gray-500 text-sm">总药品数</p>
+                        <h3 id="total-medicines" class="text-2xl font-bold mt-1">0 种</h3>
+                    </div>
+                    <div class="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
+                        <i class="fa fa-cubes"></i>
+                    </div>
+                </div>
+                <div class="flex items-center text-sm">
+                    <span class="text-secondary flex items-center" id="total-medicines-change">
+                        <i class="fa fa-arrow-up mr-1"></i> 0 种
+                    </span>
+                    <span class="text-gray-500 ml-2">较上月</span>
+                </div>
+            </div>
+
+            <div class="card p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-gray-500 text-sm">处方药</p>
+                        <h3 id="prescription-count" class="text-2xl font-bold mt-1">0 种</h3>
+                    </div>
+                    <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600">
+                        <i class="fa fa-file-text"></i>
+                    </div>
+                </div>
+                <div class="flex items-center text-sm">
+                    <span class="text-secondary flex items-center" id="prescription-change">
+                        <i class="fa fa-arrow-up mr-1"></i> 0 种
+                    </span>
+                    <span class="text-gray-500 ml-2">较上月</span>
+                </div>
+            </div>
+
+            <div class="card p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-gray-500 text-sm">非处方药</p>
+                        <h3 id="otc-count" class="text-2xl font-bold mt-1">0 种</h3>
+                    </div>
+                    <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center text-green-600">
+                        <i class="fa fa-shopping-cart"></i>
+                    </div>
+                </div>
+                <div class="flex items-center text-sm">
+                    <span class="text-secondary flex items-center" id="otc-change">
+                        <i class="fa fa-arrow-up mr-1"></i> 0 种
+                    </span>
+                    <span class="text-gray-500 ml-2">较上月</span>
+                </div>
+            </div>
+
+            <div class="card p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-gray-500 text-sm">中药</p>
+                        <h3 id="chinese-count" class="text-2xl font-bold mt-1">0 种</h3>
+                    </div>
+                    <div class="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600">
+                        <i class="fa fa-leaf"></i>
+                    </div>
+                </div>
+                <div class="flex items-center text-sm">
+                    <span class="text-secondary flex items-center" id="chinese-change">
+                        <i class="fa fa-arrow-up mr-1"></i> 0 种
+                    </span>
+                    <span class="text-gray-500 ml-2">较上月</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 药品筛选 -->
+        <div class="card p-6 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">药品名称</label>
+                    <input type="text" class="input" id="medicine-name-filter" placeholder="请输入药品名称">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">药品分类</label>
+                    <select class="input" id="category-filter">
+                        <option value="">全部分类</option>
+                        <option value="otc">非处方药(OTC)</option>
+                        <option value="prescription">处方药</option>
+                        <option value="chinese">中药</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">药品状态</label>
+                    <select class="input" id="status-filter">
+                        <option value="">全部状态</option>
+                        <option value="active">在售</option>
+                        <option value="inactive">停售</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">生产厂家</label>
+                    <input type="text" class="input" id="manufacturer-filter" placeholder="请输入生产厂家">
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-4">
+                <button class="btn btn-outline" id="reset-filters">重置</button>
+                <button class="btn btn-primary" id="apply-filters">查询</button>
+            </div>
+        </div>
+
+        <!-- 药品档案列表 -->
+        <div class="card">
+            <div class="p-6 border-b border-gray-100">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <h3 class="font-bold">药品档案列表</h3>
+                    <div class="flex items-center gap-4">
+                        <div id="medicines-total-text" class="text-sm text-gray-500">共 0 种药品</div>
+                        <!-- 每页显示数量选择器 -->
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm text-gray-500">每页显示</span>
+                            <select id="page-size-select" class="input py-1 text-sm w-20">
+                                <option value="10">10</option>
+                                <option value="20">20</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 加载状态 -->
+            <div id="loading-medicines" class="p-8 text-center">
+                <i class="fa fa-spinner fa-spin text-primary text-xl mb-2"></i>
+                <p class="text-gray-500">正在加载药品数据...</p>
+            </div>
+
+            <!-- 空状态 -->
+            <div id="empty-medicines" class="p-8 text-center hidden">
+                <i class="fa fa-pills text-gray-300 text-3xl mb-2"></i>
+                <p class="text-gray-500">暂无药品数据</p>
+                <button class="btn btn-primary mt-4" id="add-first-medicine">
+                    <i class="fa fa-plus"></i> 添加第一个药品
+                </button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <input type="checkbox" id="select-all" class="rounded border-gray-300">
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">药品信息</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">批准文号</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">分类</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">零售价</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">会员价</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                    </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200" id="medicines-list-body">
+                    <!-- 动态内容 -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分页控件 -->
+            <div class="p-4 border-t border-gray-100">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div id="medicines-range-text" class="text-sm text-gray-500">显示 0-0 条，共 0 条</div>
+
+                    <div class="flex items-center gap-2">
+                        <!-- 快速跳转 -->
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm text-gray-500">跳至</span>
+                            <input type="number" id="page-jump-input" class="input py-1 text-sm w-16" min="1" placeholder="页">
+                            <button id="page-jump-btn" class="btn btn-outline py-1 text-sm">跳转</button>
+                        </div>
+
+                        <!-- 分页按钮 -->
+                        <div class="flex gap-1" id="medicines-pagination-controls">
+                            <!-- 分页控件将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- 药品详情/编辑模态框 -->
+<div id="medicine-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+        <div class="p-6 border-b border-gray-100">
+            <h3 class="font-bold text-lg" id="medicine-modal-title">新增药品</h3>
+        </div>
+        <div class="p-6">
+            <form id="medicine-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input type="hidden" id="medicine-id">
+
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">药品图片</label>
+                    <div class="flex items-center gap-4">
+                        <div class="w-20 h-20 border border-dashed border-gray-300 rounded-lg flex items-center justify-center overflow-hidden">
+                            <img id="medicine-preview" src="" alt="药品图片" class="hidden w-full h-full object-cover">
+                            <i id="medicine-placeholder" class="fa fa-picture-o text-gray-400 text-2xl"></i>
+                        </div>
+                        <div>
+                            <input type="file" id="medicine-image" class="hidden" accept="image/*">
+                            <button type="button" id="upload-image-btn" class="btn btn-outline">上传图片</button>
+                            <p class="text-xs text-gray-500 mt-1">支持 JPG, PNG 格式，大小不超过 2MB</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">药品名称 *</label>
+                    <input type="text" class="input" id="medicine-name" required>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">通用名</label>
+                    <input type="text" class="input" id="medicine-generic-name">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">规格 *</label>
+                    <input type="text" class="input" id="medicine-spec" required>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">单位 *</label>
+                    <input type="text" class="input" id="medicine-unit" required>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">批准文号 *</label>
+                    <input type="text" class="input" id="medicine-approval-no" required>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">生产厂家 *</label>
+                    <input type="text" class="input" id="medicine-manufacturer" required>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">药品分类 *</label>
+                    <select class="input" id="medicine-category" required>
+                        <option value="">请选择分类</option>
+                        <option value="otc">非处方药(OTC)</option>
+                        <option value="prescription">处方药</option>
+                        <option value="chinese">中药</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">零售价 *</label>
+                    <input type="number" class="input" id="medicine-retail-price" step="0.01" min="0" required>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">会员价</label>
+                    <input type="number" class="input" id="medicine-member-price" step="0.01" min="0">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">是否处方药</label>
+                    <div class="mt-2">
+                        <label class="inline-flex items-center">
+                            <input type="checkbox" id="medicine-is-rx" class="rounded border-gray-300">
+                            <span class="ml-2">是处方药</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">药品状态</label>
+                    <select class="input" id="medicine-status">
+                        <option value="active">在售</option>
+                        <option value="inactive">停售</option>
+                    </select>
+                </div>
+
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">药品说明</label>
+                    <textarea class="input" id="medicine-description" rows="3"></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="p-6 border-t border-gray-100 flex justify-end gap-3">
+            <button type="button" class="btn btn-outline" id="cancel-medicine">取消</button>
+            <button type="button" class="btn btn-primary" id="save-medicine">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 引入通用前端脚本以提供 window.api 等工具 -->
+<script src="js/common.js"></script>
+<!-- 注入统一导航脚本 -->
+<script src="js/common-nav.js"></script>
+
+<script>
+    // 全局变量
+    let currentMedicinesPage = 1;
+    let medicinesPageSize = 10;
+    let totalMedicinesItems = 0;
+    let allMedicinesItems = [];
+    let filteredMedicinesItems = [];
+    let totalPages = 0;
+    let selectedMedicines = new Set();
+
+    // 初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('=== 药品档案页面初始化开始 ===');
+
+        // 立即隐藏模态框
+        hideMedicineModal();
+
+        initMedicinesEvents();
+        loadMedicinesData();
+
+        console.log('=== 药品档案页面初始化完成 ===');
+    });
+
+    // 药品相关事件初始化
+    function initMedicinesEvents() {
+        console.log('初始化药品事件...');
+
+        // 首先确保模态框是隐藏状态
+        hideMedicineModal();
+
+        // 新增药品 - 修复事件绑定
+        const addBtn = document.getElementById('add-medicine');
+        if (addBtn) {
+            addBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('点击新增药品按钮');
+                showAddMedicineModal();
+            });
+        }
+
+        // 导出档案
+        const exportBtn = document.getElementById('export-medicines');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', exportMedicinesData);
+        }
+
+        // 筛选
+        const applyFiltersBtn = document.getElementById('apply-filters');
+        if (applyFiltersBtn) {
+            applyFiltersBtn.addEventListener('click', applyMedicinesFilters);
+        }
+
+        // 重置筛选
+        const resetFiltersBtn = document.getElementById('reset-filters');
+        if (resetFiltersBtn) {
+            resetFiltersBtn.addEventListener('click', resetMedicinesFilters);
+        }
+
+        // 批量操作
+        const batchBtn = document.getElementById('batch-operate-btn');
+        if (batchBtn) {
+            batchBtn.addEventListener('click', showBatchOperations);
+        }
+
+        // 每页显示数量变化
+        const pageSizeSelect = document.getElementById('page-size-select');
+        if (pageSizeSelect) {
+            pageSizeSelect.addEventListener('change', function() {
+                medicinesPageSize = parseInt(this.value);
+                currentMedicinesPage = 1; // 重置到第一页
+                applyMedicinesFilters();
+            });
+        }
+
+        // 页面跳转
+        const pageJumpBtn = document.getElementById('page-jump-btn');
+        const pageJumpInput = document.getElementById('page-jump-input');
+        if (pageJumpBtn && pageJumpInput) {
+            pageJumpBtn.addEventListener('click', function() {
+                const targetPage = parseInt(pageJumpInput.value);
+                if (targetPage && targetPage >= 1 && targetPage <= totalPages) {
+                    changeMedicinesPage(targetPage);
+                    pageJumpInput.value = ''; // 清空输入框
+                } else {
+                    showMessage('请输入有效的页码（1-' + totalPages + '）', 'error');
+                }
+            });
+
+            // 支持回车键跳转
+            pageJumpInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    pageJumpBtn.click();
+                }
+            });
+        }
+
+        // 全选/取消全选
+        const selectAll = document.getElementById('select-all');
+        if (selectAll) {
+            selectAll.addEventListener('change', function() {
+                const checkboxes = document.querySelectorAll('.medicine-checkbox');
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = this.checked;
+                    const medicineId = checkbox.getAttribute('data-id');
+                    if (this.checked) {
+                        selectedMedicines.add(medicineId);
+                    } else {
+                        selectedMedicines.delete(medicineId);
+                    }
+                });
+                updateSelectedCount();
+            });
+        }
+
+        // 模态框事件 - 修复取消和关闭逻辑
+        const cancelBtn = document.getElementById('cancel-medicine');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('点击取消按钮');
+                hideMedicineModal();
+            });
+        }
+
+        const saveBtn = document.getElementById('save-medicine');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                saveMedicine();
+            });
+        }
+
+        // 图片上传
+        const uploadBtn = document.getElementById('upload-image-btn');
+        if (uploadBtn) {
+            uploadBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                document.getElementById('medicine-image').click();
+            });
+        }
+
+        const imageInput = document.getElementById('medicine-image');
+        if (imageInput) {
+            imageInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    // 检查文件大小
+                    if (file.size > 2 * 1024 * 1024) {
+                        showMessage('图片大小不能超过2MB', 'error');
+                        return;
+                    }
+
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        document.getElementById('medicine-preview').src = e.target.result;
+                        document.getElementById('medicine-preview').classList.remove('hidden');
+                        document.getElementById('medicine-placeholder').classList.add('hidden');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+
+        // 添加第一个药品按钮
+        const addFirstBtn = document.getElementById('add-first-medicine');
+        if (addFirstBtn) {
+            addFirstBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                showAddMedicineModal();
+            });
+        }
+
+        // 添加模态框外部点击关闭功能
+        const modal = document.getElementById('medicine-modal');
+        if (modal) {
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    console.log('点击模态框外部');
+                    hideMedicineModal();
+                }
+            });
+        }
+
+        // 防止模态框内部点击事件冒泡
+        const modalContent = document.querySelector('.modal-content');
+        if (modalContent) {
+            modalContent.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+        }
+
+        // 阻止表单默认提交行为
+        const medicineForm = document.getElementById('medicine-form');
+        if (medicineForm) {
+            medicineForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            });
+        }
+
+        // 添加ESC键关闭功能
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                hideMedicineModal();
+            }
+        });
+    }
+
+    // 加载药品数据 - 使用API调用
+    async function loadMedicinesData() {
+        console.log('开始加载药品数据...');
+        showMedicinesLoading();
+
+        try {
+            let medicines = [];
+
+            // 方法1: 使用 medicineAPI
+            if (window.api && window.api.medicineAPI && typeof window.api.medicineAPI.getAll === 'function') {
+                console.log('使用方法1: medicineAPI.getAll()');
+                const response = await window.api.medicineAPI.getAll();
+                console.log('API响应:', response);
+
+                // 处理不同的响应格式
+                if (response && response.data) {
+                    medicines = response.data;
+                } else if (Array.isArray(response)) {
+                    medicines = response;
+                } else if (response && response.content) {
+                    medicines = response.content;
+                } else if (response && response.medicines) {
+                    medicines = response.medicines;
+                }
+
+                console.log('从API获取的药品数据:', medicines);
+            }
+            // 方法2: 使用通用API
+            else if (window.api && window.api.getAllMedicines) {
+                console.log('使用方法2: api.getAllMedicines()');
+                medicines = await window.api.getAllMedicines();
+                console.log('从通用API获取的药品数据:', medicines);
+            }
+            // 方法3: 使用fetch直接调用后端API
+            else {
+                console.log('使用方法3: 直接fetch请求');
+                const response = await fetch('/api/medicines');
+                if (response.ok) {
+                    const result = await response.json();
+                    medicines = result.data || result;
+                    console.log('从fetch获取的药品数据:', medicines);
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            }
+
+            // 处理获取到的数据
+            if (medicines && medicines.length > 0) {
+                console.log(`成功获取 ${medicines.length} 个药品`);
+
+                // 处理药品数据
+                processMedicinesData(medicines);
+            } else {
+                console.log('API返回空数组，没有药品数据');
+                showMedicinesEmpty();
+            }
+
+        } catch (error) {
+            console.error('加载药品数据失败:', error);
+            showMessage('加载药品数据失败: ' + error.message, 'error');
+            showMedicinesEmpty();
+        }
+    }
+
+    // 处理药品数据
+    function processMedicinesData(medicines) {
+        console.log('开始处理药品数据，数量:', medicines.length);
+
+        allMedicinesItems = medicines.map(medicine => {
+            console.log('处理单个药品:', medicine);
+
+            // 根据数据库字段名进行映射
+            const item = {
+                id: medicine.medicine_id || medicine.medicineId || medicine.id || '未知ID',
+                name: medicine.trade_name || medicine.tradeName || medicine.generic_name || medicine.genericName || medicine.name || '未知药品',
+                genericName: medicine.generic_name || medicine.genericName || '',
+                manufacturer: medicine.manufacturer || '未知厂商',
+                spec: medicine.spec || medicine.specification || '未知规格',
+                approvalNo: medicine.approval_no || medicine.approvalNo || '待录入',
+                category: getCategoryFromId(medicine.category_id) || medicine.category || 'otc',
+                retailPrice: parseFloat(medicine.retail_price || medicine.retailPrice || medicine.price || 0),
+                memberPrice: medicine.member_price || medicine.memberPrice ? parseFloat(medicine.member_price || medicine.memberPrice) : null,
+                unit: medicine.unit || '盒',
+                isRx: Boolean(medicine.is_rx || medicine.isRx || false),
+                status: 'active', // 数据库中没有status字段，默认为active
+                description: medicine.description || '',
+                imageUrl: medicine.image_url || medicine.imageUrl || medicine.image || null
+            };
+
+            console.log('转换后的药品项:', item);
+            return item;
+        });
+
+        console.log('所有药品数据:', allMedicinesItems);
+
+        // 计算统计数据
+        updateMedicinesSummary();
+        currentMedicinesPage = 1;
+        applyMedicinesFilters();
+    }
+
+    // 根据分类ID获取分类名称
+    function getCategoryFromId(categoryId) {
+        const categoryMap = {
+            1: 'otc',        // 感冒药
+            2: 'prescription', // 消炎药
+            3: 'prescription', // 慢性病药
+            4: 'otc',        // 维生素类
+            5: 'chinese',    // 中药饮片
+            6: 'otc'         // 保健品
+        };
+        return categoryMap[categoryId] || 'otc';
+    }
+
+    // 更新药品统计
+    function updateMedicinesSummary() {
+        console.log('更新药品统计，总药品数:', allMedicinesItems.length);
+
+        if (!allMedicinesItems || allMedicinesItems.length === 0) {
+            updateMedicinesSummaryCards({
+                totalMedicines: 0,
+                totalMedicinesChange: 0,
+                prescriptionCount: 0,
+                prescriptionChange: 0,
+                otcCount: 0,
+                otcChange: 0,
+                chineseCount: 0,
+                chineseChange: 0
+            });
+            return;
+        }
+
+        const totalMedicines = allMedicinesItems.length;
+
+        // 计算各类药品数量
+        const prescriptionCount = allMedicinesItems.filter(item => item.category === 'prescription').length;
+        const otcCount = allMedicinesItems.filter(item => item.category === 'otc').length;
+        const chineseCount = allMedicinesItems.filter(item => item.category === 'chinese').length;
+
+        console.log('分类统计 - 处方药:', prescriptionCount, '非处方药:', otcCount, '中药:', chineseCount);
+
+        // 模拟变化数据
+        const mockStatsData = {
+            totalMedicines: totalMedicines,
+            totalMedicinesChange: Math.floor(Math.random() * 10),
+            prescriptionCount: prescriptionCount,
+            prescriptionChange: Math.floor(Math.random() * 5),
+            otcCount: otcCount,
+            otcChange: Math.floor(Math.random() * 5),
+            chineseCount: chineseCount,
+            chineseChange: Math.floor(Math.random() * 5)
+        };
+
+        updateMedicinesSummaryCards(mockStatsData);
+    }
+
+    // 更新药品统计卡片数据
+    function updateMedicinesSummaryCards(data) {
+        if (!data) return;
+
+        console.log('更新药品统计卡片数据:', data);
+
+        // 总药品数
+        const totalMedicinesEl = document.getElementById('total-medicines');
+        if (totalMedicinesEl) totalMedicinesEl.textContent = `${data.totalMedicines || 0} 种`;
+
+        // 总药品数变化
+        const totalMedicinesChangeEl = document.getElementById('total-medicines-change');
+        if (totalMedicinesChangeEl) {
+            const isPositive = (data.totalMedicinesChange || 0) >= 0;
+            totalMedicinesChangeEl.innerHTML = `
+                <i class="fa fa-arrow-${isPositive ? 'up' : 'down'} mr-1"></i>
+                ${Math.abs(data.totalMedicinesChange || 0)} 种
+            `;
+            totalMedicinesChangeEl.className = isPositive ?
+                'text-secondary flex items-center' :
+                'text-accent flex items-center';
+        }
+
+        // 处方药数量
+        const prescriptionCountEl = document.getElementById('prescription-count');
+        if (prescriptionCountEl) prescriptionCountEl.textContent = `${data.prescriptionCount || 0} 种`;
+
+        // 处方药变化
+        const prescriptionChangeEl = document.getElementById('prescription-change');
+        if (prescriptionChangeEl) {
+            const isPositive = (data.prescriptionChange || 0) >= 0;
+            prescriptionChangeEl.innerHTML = `
+                <i class="fa fa-arrow-${isPositive ? 'up' : 'down'} mr-1"></i>
+                ${Math.abs(data.prescriptionChange || 0)} 种
+            `;
+            prescriptionChangeEl.className = isPositive ?
+                'text-secondary flex items-center' :
+                'text-accent flex items-center';
+        }
+
+        // 非处方药数量
+        const otcCountEl = document.getElementById('otc-count');
+        if (otcCountEl) otcCountEl.textContent = `${data.otcCount || 0} 种`;
+
+        // 非处方药变化
+        const otcChangeEl = document.getElementById('otc-change');
+        if (otcChangeEl) {
+            const isPositive = (data.otcChange || 0) >= 0;
+            otcChangeEl.innerHTML = `
+                <i class="fa fa-arrow-${isPositive ? 'up' : 'down'} mr-1"></i>
+                ${Math.abs(data.otcChange || 0)} 种
+            `;
+            otcChangeEl.className = isPositive ?
+                'text-secondary flex items-center' :
+                'text-accent flex items-center';
+        }
+
+        // 中药数量
+        const chineseCountEl = document.getElementById('chinese-count');
+        if (chineseCountEl) chineseCountEl.textContent = `${data.chineseCount || 0} 种`;
+
+        // 中药变化
+        const chineseChangeEl = document.getElementById('chinese-change');
+        if (chineseChangeEl) {
+            const isPositive = (data.chineseChange || 0) >= 0;
+            chineseChangeEl.innerHTML = `
+                <i class="fa fa-arrow-${isPositive ? 'up' : 'down'} mr-1"></i>
+                ${Math.abs(data.chineseChange || 0)} 种
+            `;
+            chineseChangeEl.className = isPositive ?
+                'text-secondary flex items-center' :
+                'text-accent flex items-center';
+        }
+    }
+
+    // 应用药品筛选
+    function applyMedicinesFilters() {
+        console.log('=== 应用药品筛选条件 ===');
+        console.log('总药品数:', allMedicinesItems.length);
+
+        if (allMedicinesItems.length === 0) {
+            console.log('没有药品数据可筛选');
+            showMedicinesEmpty();
+            return;
+        }
+
+        const filters = getMedicinesFilters();
+        console.log('药品筛选条件:', filters);
+
+        filteredMedicinesItems = [...allMedicinesItems];
+
+        // 药品名称筛选
+        if (filters.medicineName) {
+            const searchTerm = filters.medicineName.toLowerCase();
+            filteredMedicinesItems = filteredMedicinesItems.filter(item => {
+                const name = item.name || '';
+                const genericName = item.genericName || '';
+                return name.toLowerCase().includes(searchTerm) || genericName.toLowerCase().includes(searchTerm);
+            });
+        }
+
+        // 分类筛选
+        if (filters.category) {
+            filteredMedicinesItems = filteredMedicinesItems.filter(item => {
+                const category = item.category || '';
+                return category === filters.category;
+            });
+        }
+
+        // 状态筛选
+        if (filters.status) {
+            filteredMedicinesItems = filteredMedicinesItems.filter(item => {
+                const status = item.status || '';
+                return status === filters.status;
+            });
+        }
+
+        // 生产厂家筛选
+        if (filters.manufacturer) {
+            const searchTerm = filters.manufacturer.toLowerCase();
+            filteredMedicinesItems = filteredMedicinesItems.filter(item => {
+                const manufacturer = item.manufacturer || '';
+                return manufacturer.toLowerCase().includes(searchTerm);
+            });
+        }
+
+        console.log('筛选后药品数量:', filteredMedicinesItems.length);
+        displayFilteredMedicinesItems();
+    }
+
+    // 获取药品筛选条件
+    function getMedicinesFilters() {
+        return {
+            medicineName: document.getElementById('medicine-name-filter').value,
+            category: document.getElementById('category-filter').value,
+            status: document.getElementById('status-filter').value,
+            manufacturer: document.getElementById('manufacturer-filter').value
+        };
+    }
+
+    // 显示筛选后的药品项目
+    function displayFilteredMedicinesItems() {
+        const startIndex = (currentMedicinesPage - 1) * medicinesPageSize;
+        const endIndex = startIndex + medicinesPageSize;
+        const pagedItems = filteredMedicinesItems.slice(startIndex, endIndex);
+
+        console.log('分页后药品项目:', pagedItems);
+        displayMedicinesItems(pagedItems);
+        updateMedicinesPagination(filteredMedicinesItems.length);
+    }
+
+    // 显示药品加载状态
+    function showMedicinesLoading() {
+        document.getElementById('medicines-list-body').classList.add('hidden');
+        document.getElementById('loading-medicines').classList.remove('hidden');
+        document.getElementById('empty-medicines').classList.add('hidden');
+    }
+
+    // 显示药品空状态
+    function showMedicinesEmpty() {
+        document.getElementById('medicines-list-body').classList.add('hidden');
+        document.getElementById('loading-medicines').classList.add('hidden');
+        document.getElementById('empty-medicines').classList.remove('hidden');
+        document.getElementById('medicines-total-text').textContent = '共 0 种药品';
+        document.getElementById('medicines-range-text').textContent = '显示 0-0 条，共 0 条';
+        document.getElementById('medicines-pagination-controls').innerHTML = '';
+    }
+
+    // 显示药品数据
+    function displayMedicinesItems(items) {
+        const tbody = document.getElementById('medicines-list-body');
+
+        console.log('要显示的药品数据:', items);
+
+        if (!items || items.length === 0) {
+            console.log('没有药品数据，显示空状态');
+            showMedicinesEmpty();
+            return;
+        }
+
+        document.getElementById('loading-medicines').classList.add('hidden');
+        document.getElementById('empty-medicines').classList.add('hidden');
+        tbody.classList.remove('hidden');
+
+        const html = items.map(item => {
+            console.log('处理药品项目:', item);
+
+            // 获取分类显示文本和样式
+            const categoryInfo = getCategoryDisplayInfo(item.category);
+            // 获取状态显示文本和样式
+            const statusInfo = getStatusDisplayInfo(item.status);
+
+            return `
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <input type="checkbox" class="medicine-checkbox rounded border-gray-300" data-id="${item.id}">
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <img src="${item.imageUrl || 'https://picsum.photos/40/40?random=' + Math.floor(Math.random() * 100)}"
+                                 alt="药品图片" class="w-10 h-10 mr-3 rounded">
+                            <div>
+                                <div class="text-sm font-medium">${item.name}</div>
+                                <div class="text-xs text-gray-500">${item.genericName || ''}</div>
+                                <div class="text-xs text-gray-500">${item.manufacturer}</div>
+                                <div class="text-xs text-gray-500">${item.spec} ${item.unit}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${item.approvalNo}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="medicine-indicator ${categoryInfo.class}">
+                            ${categoryInfo.text}
+                        </span>
+                        ${item.isRx ? `
+                        <br>
+                        <span class="medicine-indicator medicine-prescription">
+                            处方药
+                        </span>
+                        ` : ''}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">¥${item.retailPrice.toFixed(2)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${item.memberPrice ? '¥' + item.memberPrice.toFixed(2) : '-'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="medicine-indicator ${statusInfo.class}">
+                            ${statusInfo.text}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <button class="text-primary hover:underline mr-3" onclick="viewMedicineDetail('${item.id}')">详情</button>
+                        <button class="text-secondary hover:underline mr-3" onclick="editMedicine('${item.id}')">编辑</button>
+                        <button class="text-accent hover:underline" onclick="deleteMedicine('${item.id}')">删除</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        tbody.innerHTML = html;
+
+        // 绑定复选框事件
+        const checkboxes = document.querySelectorAll('.medicine-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const medicineId = this.getAttribute('data-id');
+                if (this.checked) {
+                    selectedMedicines.add(medicineId);
+                } else {
+                    selectedMedicines.delete(medicineId);
+                    // 取消全选
+                    document.getElementById('select-all').checked = false;
+                }
+                updateSelectedCount();
+            });
+        });
+    }
+
+    // 获取分类显示信息
+    function getCategoryDisplayInfo(category) {
+        switch(category) {
+            case 'prescription':
+                return { text: '处方药', class: 'medicine-prescription' };
+            case 'otc':
+                return { text: '非处方药', class: 'medicine-otc' };
+            case 'chinese':
+                return { text: '中药', class: 'medicine-active' };
+            default:
+                return { text: '未知', class: 'medicine-inactive' };
+        }
+    }
+
+    // 获取状态显示信息
+    function getStatusDisplayInfo(status) {
+        switch(status) {
+            case 'active':
+                return { text: '在售', class: 'medicine-active' };
+            case 'inactive':
+                return { text: '停售', class: 'medicine-inactive' };
+            default:
+                return { text: '未知', class: 'medicine-inactive' };
+        }
+    }
+
+    // 更新药品分页信息
+    function updateMedicinesPagination(total) {
+        totalMedicinesItems = total;
+        totalPages = Math.ceil(total / medicinesPageSize);
+
+        const startItem = ((currentMedicinesPage - 1) * medicinesPageSize) + 1;
+        const endItem = Math.min(currentMedicinesPage * medicinesPageSize, total);
+
+        document.getElementById('medicines-total-text').textContent = `共 ${total} 种药品`;
+        document.getElementById('medicines-range-text').textContent =
+            `显示 ${startItem}-${endItem} 条，共 ${total} 条`;
+
+        updateMedicinesPaginationControls();
+    }
+
+    // 更新药品分页控件
+    function updateMedicinesPaginationControls() {
+        const container = document.getElementById('medicines-pagination-controls');
+
+        if (totalPages <= 1) {
+            container.innerHTML = '';
+            return;
+        }
+
+        let html = '';
+
+        // 上一页按钮
+        if (currentMedicinesPage > 1) {
+            html += `
+                <button class="pagination-btn" onclick="changeMedicinesPage(${currentMedicinesPage - 1})">
+                    <i class="fa fa-chevron-left text-xs"></i>
+                </button>
+            `;
+        } else {
+            html += `
+                <button class="pagination-btn disabled" disabled>
+                    <i class="fa fa-chevron-left text-xs"></i>
+                </button>
+            `;
+        }
+
+        // 页码按钮 - 显示最多7个页码
+        const startPage = Math.max(1, currentMedicinesPage - 3);
+        const endPage = Math.min(totalPages, startPage + 6);
+
+        // 显示第一页和省略号（如果需要）
+        if (startPage > 1) {
+            html += `
+                <button class="pagination-btn" onclick="changeMedicinesPage(1)">1</button>
+            `;
+            if (startPage > 2) {
+                html += `<span class="px-2">...</span>`;
+            }
+        }
+
+        // 显示页码范围
+        for (let i = startPage; i <= endPage; i++) {
+            if (i === currentMedicinesPage) {
+                html += `
+                    <button class="pagination-btn active">${i}</button>
+                `;
+            } else {
+                html += `
+                    <button class="pagination-btn" onclick="changeMedicinesPage(${i})">${i}</button>
+                `;
+            }
+        }
+
+        // 显示最后一页和省略号（如果需要）
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                html += `<span class="px-2">...</span>`;
+            }
+            html += `
+                <button class="pagination-btn" onclick="changeMedicinesPage(${totalPages})">${totalPages}</button>
+            `;
+        }
+
+        // 下一页按钮
+        if (currentMedicinesPage < totalPages) {
+            html += `
+                <button class="pagination-btn" onclick="changeMedicinesPage(${currentMedicinesPage + 1})">
+                    <i class="fa fa-chevron-right text-xs"></i>
+                </button>
+            `;
+        } else {
+            html += `
+                <button class="pagination-btn disabled" disabled>
+                    <i class="fa fa-chevron-right text-xs"></i>
+                </button>
+            `;
+        }
+
+        container.innerHTML = html;
+    }
+
+    // 切换药品页面
+    function changeMedicinesPage(page) {
+        console.log('切换药品页面到:', page);
+
+        if (page < 1 || page > totalPages) {
+            console.log('无效的页码:', page);
+            return;
+        }
+
+        currentMedicinesPage = page;
+        displayFilteredMedicinesItems();
+
+        // 滚动到表格顶部
+        const table = document.querySelector('.card table');
+        if (table) {
+            table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    // 重置药品筛选
+    function resetMedicinesFilters() {
+        document.getElementById('medicine-name-filter').value = '';
+        document.getElementById('category-filter').value = '';
+        document.getElementById('status-filter').value = '';
+        document.getElementById('manufacturer-filter').value = '';
+        currentMedicinesPage = 1;
+        applyMedicinesFilters();
+    }
+
+    // 查看药品详情
+    function viewMedicineDetail(medicineId) {
+        const medicine = allMedicinesItems.find(item => item.id === medicineId);
+        if (medicine) {
+            showMedicineModal(medicine, true);
+        }
+    }
+
+    // 编辑药品
+    function editMedicine(medicineId) {
+        const medicine = allMedicinesItems.find(item => item.id === medicineId);
+        if (medicine) {
+            showMedicineModal(medicine, false);
+        }
+    }
+
+    // 删除药品
+    function deleteMedicine(medicineId) {
+        if (confirm('确定要删除这个药品吗？此操作不可恢复。')) {
+            console.log('删除药品:', medicineId);
+            // 这里调用API删除药品
+            // await window.api.medicineAPI.delete(medicineId);
+
+            // 临时从列表中移除
+            allMedicinesItems = allMedicinesItems.filter(item => item.id !== medicineId);
+            updateMedicinesSummary();
+            applyMedicinesFilters();
+
+            showMessage('药品删除成功', 'success');
+        }
+    }
+
+    // 显示新增药品模态框
+    function showAddMedicineModal() {
+        console.log('显示新增药品模态框');
+        document.getElementById('medicine-modal-title').textContent = '新增药品';
+        document.getElementById('medicine-id').value = '';
+
+        // 重置表单
+        const form = document.getElementById('medicine-form');
+        if (form) {
+            form.reset();
+        }
+
+        // 重置图片预览
+        document.getElementById('medicine-preview').classList.add('hidden');
+        document.getElementById('medicine-placeholder').classList.remove('hidden');
+
+        // 显示模态框
+        const modal = document.getElementById('medicine-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+        }
+    }
+
+    // 显示编辑药品模态框
+    function showMedicineModal(medicine, isViewOnly = false) {
+        console.log('显示药品模态框，查看模式：', isViewOnly);
+
+        if (isViewOnly) {
+            document.getElementById('medicine-modal-title').textContent = '药品详情';
+            // 禁用所有表单字段
+            const form = document.getElementById('medicine-form');
+            const inputs = form.querySelectorAll('input, select, textarea');
+            inputs.forEach(input => input.disabled = true);
+            document.getElementById('upload-image-btn').disabled = true;
+            document.getElementById('save-medicine').classList.add('hidden');
+        } else {
+            document.getElementById('medicine-modal-title').textContent = '编辑药品';
+            // 启用所有表单字段
+            const form = document.getElementById('medicine-form');
+            const inputs = form.querySelectorAll('input, select, textarea');
+            inputs.forEach(input => input.disabled = false);
+            document.getElementById('upload-image-btn').disabled = false;
+            document.getElementById('save-medicine').classList.remove('hidden');
+        }
+
+        // 填充表单数据
+        document.getElementById('medicine-id').value = medicine.id;
+        document.getElementById('medicine-name').value = medicine.name;
+        document.getElementById('medicine-generic-name').value = medicine.genericName || '';
+        document.getElementById('medicine-spec').value = medicine.spec;
+        document.getElementById('medicine-unit').value = medicine.unit;
+        document.getElementById('medicine-approval-no').value = medicine.approvalNo;
+        document.getElementById('medicine-manufacturer').value = medicine.manufacturer;
+        document.getElementById('medicine-category').value = medicine.category;
+        document.getElementById('medicine-retail-price').value = medicine.retailPrice;
+        document.getElementById('medicine-member-price').value = medicine.memberPrice || '';
+        document.getElementById('medicine-is-rx').checked = medicine.isRx;
+        document.getElementById('medicine-status').value = medicine.status;
+        document.getElementById('medicine-description').value = medicine.description || '';
+
+        // 设置图片
+        if (medicine.imageUrl) {
+            document.getElementById('medicine-preview').src = medicine.imageUrl;
+            document.getElementById('medicine-preview').classList.remove('hidden');
+            document.getElementById('medicine-placeholder').classList.add('hidden');
+        } else {
+            document.getElementById('medicine-preview').classList.add('hidden');
+            document.getElementById('medicine-placeholder').classList.remove('hidden');
+        }
+
+        // 显示模态框
+        const modal = document.getElementById('medicine-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+        }
+    }
+
+    // 隐藏药品模态框 - 修复版本
+    function hideMedicineModal() {
+        console.log('隐藏药品模态框');
+        const modal = document.getElementById('medicine-modal');
+        if (modal) {
+            // 使用多种方式确保模态框隐藏
+            modal.classList.add('hidden');
+            modal.style.display = 'none';
+            modal.setAttribute('aria-hidden', 'true');
+        }
+
+        // 重置表单状态
+        const form = document.getElementById('medicine-form');
+        if (form) {
+            const inputs = form.querySelectorAll('input, select, textarea');
+            inputs.forEach(input => {
+                input.disabled = false;
+                input.blur(); // 移除焦点
+            });
+        }
+
+        const uploadBtn = document.getElementById('upload-image-btn');
+        if (uploadBtn) {
+            uploadBtn.disabled = false;
+        }
+
+        const saveBtn = document.getElementById('save-medicine');
+        if (saveBtn) {
+            saveBtn.classList.remove('hidden');
+        }
+
+        // 清除文件输入
+        const imageInput = document.getElementById('medicine-image');
+        if (imageInput) {
+            imageInput.value = '';
+        }
+
+        // 强制重绘
+        if (modal) {
+            modal.offsetHeight; // 触发重绘
+        }
+    }
+
+    // 保存药品
+    function saveMedicine() {
+        const form = document.getElementById('medicine-form');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        const medicineData = {
+            id: document.getElementById('medicine-id').value,
+            name: document.getElementById('medicine-name').value,
+            genericName: document.getElementById('medicine-generic-name').value,
+            spec: document.getElementById('medicine-spec').value,
+            unit: document.getElementById('medicine-unit').value,
+            approvalNo: document.getElementById('medicine-approval-no').value,
+            manufacturer: document.getElementById('medicine-manufacturer').value,
+            category: document.getElementById('medicine-category').value,
+            retailPrice: parseFloat(document.getElementById('medicine-retail-price').value),
+            memberPrice: document.getElementById('medicine-member-price').value ?
+                parseFloat(document.getElementById('medicine-member-price').value) : null,
+            isRx: document.getElementById('medicine-is-rx').checked,
+            status: document.getElementById('medicine-status').value,
+            description: document.getElementById('medicine-description').value
+        };
+
+        console.log('保存药品数据:', medicineData);
+
+        // 这里调用API保存药品
+        // if (medicineData.id) {
+        //     // 更新现有药品
+        //     await window.api.medicineAPI.update(medicineData.id, medicineData);
+        // } else {
+        //     // 新增药品
+        //     await window.api.medicineAPI.create(medicineData);
+        // }
+
+        // 临时添加到列表
+        if (medicineData.id) {
+            // 更新现有药品
+            const index = allMedicinesItems.findIndex(item => item.id === medicineData.id);
+            if (index !== -1) {
+                allMedicinesItems[index] = { ...allMedicinesItems[index], ...medicineData };
+            }
+        } else {
+            // 新增药品
+            medicineData.id = 'M' + Date.now();
+            allMedicinesItems.unshift(medicineData);
+        }
+
+        updateMedicinesSummary();
+        applyMedicinesFilters();
+        hideMedicineModal();
+
+        showMessage('药品保存成功', 'success');
+    }
+
+    // 显示批量操作
+    function showBatchOperations() {
+        if (selectedMedicines.size === 0) {
+            showMessage('请先选择要操作的药品', 'warning');
+            return;
+        }
+
+        const action = prompt(`已选择 ${selectedMedicines.size} 个药品，请选择操作：\n1. 批量启用\n2. 批量停用\n3. 批量删除`, '1');
+
+        switch(action) {
+            case '1':
+                batchUpdateStatus('active');
+                break;
+            case '2':
+                batchUpdateStatus('inactive');
+                break;
+            case '3':
+                if (confirm(`确定要删除选中的 ${selectedMedicines.size} 个药品吗？此操作不可恢复。`)) {
+                    batchDelete();
+                }
+                break;
+            default:
+                // 用户取消或输入无效
+        }
+    }
+
+    // 批量更新状态
+    function batchUpdateStatus(status) {
+        allMedicinesItems.forEach(item => {
+            if (selectedMedicines.has(item.id)) {
+                item.status = status;
+            }
+        });
+
+        updateMedicinesSummary();
+        applyMedicinesFilters();
+        selectedMedicines.clear();
+        updateSelectedCount();
+
+        showMessage(`已成功更新 ${selectedMedicines.size} 个药品的状态`, 'success');
+    }
+
+    // 批量删除
+    function batchDelete() {
+        allMedicinesItems = allMedicinesItems.filter(item => !selectedMedicines.has(item.id));
+
+        updateMedicinesSummary();
+        applyMedicinesFilters();
+        selectedMedicines.clear();
+        updateSelectedCount();
+
+        showMessage(`已成功删除 ${selectedMedicines.size} 个药品`, 'success');
+    }
+
+    // 更新选中数量显示
+    function updateSelectedCount() {
+        const batchBtn = document.getElementById('batch-operate-btn');
+        if (selectedMedicines.size > 0) {
+            batchBtn.innerHTML = `<i class="fa fa-cogs"></i> 批量操作 (${selectedMedicines.size})`;
+        } else {
+            batchBtn.innerHTML = `<i class="fa fa-cogs"></i> 批量操作`;
+        }
+    }
+
+    // 导出药品数据
+    async function exportMedicinesData() {
+        try {
+            const button = document.getElementById('export-medicines');
+            if (button) {
+                button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 导出中...';
+                button.disabled = true;
+            }
+
+            // 创建CSV内容 - 修复编码问题
+            let csvContent = "\uFEFF"; // 添加BOM头，解决Excel中文乱码问题
+
+            // 表头
+            csvContent += "药品名称,通用名,规格,单位,批准文号,生产厂家,分类,零售价,会员价,是否处方药,状态,说明\n";
+
+            // 数据行
+            filteredMedicinesItems.forEach(item => {
+                // 转义CSV字段，处理逗号、引号等特殊字符
+                const escapeCSV = (field) => {
+                    if (field === null || field === undefined) return '""';
+                    const stringField = String(field);
+                    // 如果包含逗号、引号、换行符，需要用引号包围并转义内部引号
+                    if (stringField.includes(',') || stringField.includes('"') || stringField.includes('\n')) {
+                        return '"' + stringField.replace(/"/g, '""') + '"';
+                    }
+                    return stringField;
+                };
+
+                csvContent += [
+                    escapeCSV(item.name),
+                    escapeCSV(item.genericName),
+                    escapeCSV(item.spec),
+                    escapeCSV(item.unit),
+                    escapeCSV(item.approvalNo),
+                    escapeCSV(item.manufacturer),
+                    escapeCSV(getCategoryDisplayInfo(item.category).text),
+                    item.retailPrice,
+                    item.memberPrice || '',
+                    item.isRx ? '是' : '否',
+                    getStatusDisplayInfo(item.status).text,
+                    escapeCSV(item.description)
+                ].join(',') + '\n';
+            });
+
+            // 创建下载链接 - 使用正确的MIME类型和编码
+            const blob = new Blob([csvContent], {
+                type: 'text/csv;charset=utf-8;'
+            });
+
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+
+            // 生成文件名，包含日期时间
+            const now = new Date();
+            const dateStr = now.toISOString().slice(0,10).replace(/-/g, '');
+            const timeStr = now.toTimeString().slice(0,8).replace(/:/g, '');
+            link.download = `药品档案报表_${dateStr}_${timeStr}.csv`;
+
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            // 释放URL对象
+            setTimeout(() => {
+                URL.revokeObjectURL(url);
+            }, 100);
+
+            showMessage('药品档案导出成功！', 'success');
+        } catch (error) {
+            console.error('导出失败:', error);
+            showMessage('导出失败，请重试: ' + error.message, 'error');
+        } finally {
+            const button = document.getElementById('export-medicines');
+            if (button) {
+                button.innerHTML = '<i class="fa fa-download"></i> 导出档案';
+                button.disabled = false;
+            }
+        }
+    }
+
+    // 显示消息
+    function showMessage(message, type = 'success') {
+        if (window.api && window.api.showMessage) {
+            window.api.showMessage(message, type);
+        } else {
+            // 备用消息显示
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50 ${
+                type === 'success' ? 'bg-green-500 text-white' :
+                type === 'error' ? 'bg-red-500 text-white' :
+                type === 'warning' ? 'bg-yellow-500 text-white' : 'bg-blue-500 text-white'
+            }`;
+            messageDiv.innerHTML = `
+                <i class="fa ${type === 'success' ? 'fa-check-circle' :
+                type === 'error' ? 'fa-exclamation-triangle' :
+                type === 'warning' ? 'fa-exclamation-circle' : 'fa-info-circle'} mr-2"></i>
+                ${message}
+            `;
+            document.body.appendChild(messageDiv);
+            setTimeout(() => {
+                if (document.body.contains(messageDiv)) {
+                    document.body.removeChild(messageDiv);
+                }
+            }, 3000);
+        }
+    }
+</script>
+</body>
+</html>

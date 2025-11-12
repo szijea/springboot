@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智慧药房收银系统 - 会员管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+
+    <!-- 配置Tailwind -->
+    <script>
+        tailwind.config = {
+          theme: {
+            extend: {
+              colors: {
+                primary: '#165DFF',
+                secondary: '#36B37E',
+                accent: '#FF5630',
+              },
+              fontFamily: {
+                inter: ['Inter', 'system-ui', 'sans-serif'],
+              },
+            },
+          }
+        }
+    </script>
+
+    <style type="text/tailwindcss">
+        @layer utilities {
+          .sidebar-item {
+            @apply flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 cursor-pointer;
+          }
+          .sidebar-item.active {
+            @apply bg-primary text-white;
+          }
+          .sidebar-item:not(.active):hover {
+            @apply bg-gray-100;
+          }
+          .card {
+            @apply bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden transition-all duration-300 hover:shadow-md;
+          }
+          .btn {
+            @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2;
+          }
+          .btn-primary {
+            @apply bg-primary text-white hover:bg-primary/90;
+          }
+          .btn-outline {
+            @apply border border-gray-300 hover:bg-gray-50;
+          }
+          .input {
+            @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all;
+          }
+          .badge {
+            @apply px-2 py-1 rounded-full text-xs font-medium;
+          }
+        }
+    </style>
+</head>
+
+<body class="font-inter bg-gray-50 text-gray-800 min-h-screen flex">
+<!-- 注入统一导航（侧边栏 + 顶部） -->
+<div id="common-nav" data-active="members"></div>
+
+<main class="flex-1 flex flex-col pt-16">
+    <!-- 内容区域 -->
+    <div class="flex-1 overflow-y-auto p-6 bg-gray-50">
+        <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+            <div>
+                <h2 class="text-[clamp(1.25rem,2vw,1.75rem)] font-bold">会员管理</h2>
+                <p class="text-gray-500">会员信息与消费记录管理</p>
+            </div>
+            <div class="flex gap-3">
+                <button class="btn btn-outline" id="import-btn">
+                    <i class="fa fa-upload"></i> 导入会员
+                </button>
+                <button class="btn btn-outline" id="export-btn">
+                    <i class="fa fa-download"></i> 导出会员
+                </button>
+                <button class="btn btn-primary" id="add-member">
+                    <i class="fa fa-plus"></i> 新增会员
+                </button>
+            </div>
+        </div>
+
+        <!-- 会员统计卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6" id="stats-cards">
+            <div class="card p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-gray-500 text-sm">总会员数</p>
+                        <h3 class="text-2xl font-bold mt-1" id="total-members">0 人</h3>
+                    </div>
+                    <div class="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
+                        <i class="fa fa-users"></i>
+                    </div>
+                </div>
+                <div class="flex items-center text-sm">
+                    <span class="text-secondary flex items-center" id="total-growth">
+                        <i class="fa fa-arrow-up mr-1"></i> 0 人
+                    </span>
+                    <span class="text-gray-500 ml-2">本月新增</span>
+                </div>
+            </div>
+
+            <div class="card p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-gray-500 text-sm">VIP会员</p>
+                        <h3 class="text-2xl font-bold mt-1" id="vip-members">0 人</h3>
+                    </div>
+                    <div class="w-10 h-10 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary">
+                        <i class="fa fa-crown"></i>
+                    </div>
+                </div>
+                <div class="flex items-center text-sm">
+                    <span class="text-secondary flex items-center" id="vip-growth">
+                        <i class="fa fa-arrow-up mr-1"></i> 0 人
+                    </span>
+                    <span class="text-gray-500 ml-2">较上月</span>
+                </div>
+            </div>
+
+            <div class="card p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-gray-500 text-sm">新增会员</p>
+                        <h3 class="text-2xl font-bold mt-1" id="new-members">0 人</h3>
+                    </div>
+                    <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center text-purple-600">
+                        <i class="fa fa-user-plus"></i>
+                    </div>
+                </div>
+                <div class="flex items-center text-sm">
+                    <span class="text-secondary flex items-center" id="new-growth">
+                        <i class="fa fa-arrow-up mr-1"></i> 0 人
+                    </span>
+                    <span class="text-gray-500 ml-2">本月新增</span>
+                </div>
+            </div>
+
+            <div class="card p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-gray-500 text-sm">沉睡会员</p>
+                        <h3 class="text-2xl font-bold mt-1" id="sleeping-members">0 人</h3>
+                    </div>
+                    <div class="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600">
+                        <i class="fa fa-clock-o"></i>
+                    </div>
+                </div>
+                <div class="flex items-center text-sm">
+                    <span class="text-secondary flex items-center" id="sleeping-growth">
+                        <i class="fa fa-arrow-down mr-1"></i> 0 人
+                    </span>
+                    <span class="text-gray-500 ml-2">较上月</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 会员筛选 -->
+        <div class="card p-6 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">会员姓名</label>
+                    <input type="text" id="filter-name" class="input" placeholder="请输入会员姓名">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">手机号码</label>
+                    <input type="text" id="filter-phone" class="input" placeholder="请输入手机号码">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">会员等级</label>
+                    <select id="filter-level" class="input">
+                        <option value="">全部等级</option>
+                        <option value="0">普通会员</option>
+                        <option value="1">白银会员</option>
+                        <option value="2">黄金会员</option>
+                        <option value="3">铂金会员</option>
+                        <option value="4">VIP会员</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">注册日期</label>
+                    <input type="date" id="filter-date" class="input">
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-4">
+                <button class="btn btn-outline" id="reset-filter">重置</button>
+                <button class="btn btn-primary" id="apply-filter">查询</button>
+            </div>
+        </div>
+
+        <!-- 会员列表 -->
+        <div class="card">
+            <div class="p-6 border-b border-gray-100">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold">会员列表</h3>
+                    <div class="text-sm text-gray-500" id="member-count">共 0 位会员</div>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200" id="members-table">
+                    <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">会员信息</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">手机号码</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">会员等级</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">累计积分</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">消费次数</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最近消费</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                    </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200" id="members-tbody">
+                    <!-- 动态内容 -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="p-4 border-t border-gray-100 flex justify-between items-center">
+                <div class="text-sm text-gray-500" id="pagination-info">显示 0-0 条，共 0 条</div>
+                <div class="flex gap-1" id="pagination-buttons">
+                    <button class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50" disabled id="prev-page">
+                        <i class="fa fa-chevron-left text-xs"></i>
+                    </button>
+                    <button class="w-8 h-8 flex items-center justify-center rounded border border-primary bg-primary text-white">1</button>
+                    <button class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 hover:bg-gray-50">2</button>
+                    <button class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 hover:bg-gray-50">3</button>
+                    <button class="w-8 h-8 flex items-center justify-center rounded border border-gray-300 hover:bg-gray-50" id="next-page">
+                        <i class="fa fa-chevron-right text-xs"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- 注入统一导航脚本 -->
+<script src="js/common-nav.js"></script>
+
+<!-- 新增会员弹窗 -->
+<div id="member-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+    <div class="card w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+        <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+            <h3 class="font-bold text-lg" id="modal-title">新增会员</h3>
+            <button id="close-modal" class="text-gray-400 hover:text-gray-600">
+                <i class="fa fa-times"></i>
+            </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-6">
+            <div class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">会员姓名 <span class="text-accent">*</span></label>
+                        <input type="text" id="member-name" class="input" placeholder="请输入会员姓名" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">手机号码 <span class="text-accent">*</span></label>
+                        <input type="tel" id="member-phone" class="input" placeholder="请输入手机号码" required>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">会员等级</label>
+                    <select id="member-level" class="input">
+                        <option value="0">普通会员</option>
+                        <option value="1">白银会员</option>
+                        <option value="2">黄金会员</option>
+                        <option value="3">铂金会员</option>
+                        <option value="4">VIP会员</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">性别</label>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-2">
+                                <input type="radio" name="gender" value="male" class="text-primary focus:ring-primary/30" checked>
+                                <span>男</span>
+                            </label>
+                            <label class="flex items-center gap-2">
+                                <input type="radio" name="gender" value="female" class="text-primary focus:ring-primary/30">
+                                <span>女</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">出生日期</label>
+                        <input type="date" id="birth-date" class="input">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">家庭住址</label>
+                    <input type="text" id="address" class="input" placeholder="请输入家庭住址">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">过敏史</label>
+                    <textarea id="allergy-history" class="input" rows="3" placeholder="请输入药品过敏史（如有）"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+                    <textarea id="remark" class="input" rows="2" placeholder="请输入备注信息"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-6 border-t border-gray-100 flex justify-end gap-3">
+            <button class="btn btn-outline" id="cancel-member">取消</button>
+            <button class="btn btn-primary" id="save-member">保存会员</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // API 配置
+    const api = {
+        baseUrl: '/api/members',
+
+        async request(endpoint, options = {}) {
+            try {
+                const url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint}`;
+                console.log('API请求:', url, options);
+
+                const response = await fetch(url, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+
+                return await response.json();
+            } catch (error) {
+                console.error('API请求失败:', error);
+                this.showMessage('网络请求失败: ' + error.message, 'error');
+                throw error;
+            }
+        },
+
+        // 会员API
+        memberAPI: {
+            getAll: () => api.request(''),
+            getById: (id) => api.request(`/${id}`),
+            create: (data) => api.request('', {
+                method: 'POST',
+                body: JSON.stringify(data)
+            }),
+            update: (id, data) => api.request(`/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify(data)
+            }),
+            delete: (id) => api.request(`/${id}`, { method: 'DELETE' }),
+            search: (keyword) => api.request(`/search?keyword=${encodeURIComponent(keyword)}`),
+            getStats: () => api.request('/stats'),
+            checkPhone: (phone) => api.request(`/check-phone?phone=${encodeURIComponent(phone)}`)
+        },
+
+        showMessage: (message, type = 'success') => {
+            console.log(`${type}: ${message}`);
+            // 简单的消息提示实现
+            const alertClass = type === 'error' ? 'bg-red-100 border-red-400 text-red-700' :
+                             type === 'warning' ? 'bg-yellow-100 border-yellow-400 text-yellow-700' :
+                             'bg-green-100 border-green-400 text-green-700';
+
+            const iconClass = type === 'error' ? 'fa-exclamation-circle' :
+                             type === 'warning' ? 'fa-warning' : 'fa-check-circle';
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `fixed top-4 right-4 border px-4 py-3 rounded ${alertClass} z-50 shadow-lg transition-all duration-300`;
+            messageDiv.innerHTML = `
+                <div class="flex items-center">
+                    <i class="fa ${iconClass} mr-2"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+            document.body.appendChild(messageDiv);
+
+            setTimeout(() => {
+                if (messageDiv.parentNode) {
+                    messageDiv.parentNode.removeChild(messageDiv);
+                }
+            }, 3000);
+        },
+
+        utils: {
+            formatDate: (dateString) => {
+                if (!dateString) return '-';
+                try {
+                    const date = new Date(dateString);
+                    return date.toLocaleDateString('zh-CN');
+                } catch (e) {
+                    return dateString;
+                }
+            },
+
+            formatPhone: (phone) => {
+                if (!phone) return '-';
+                return phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
+            },
+
+            escapeHtml: (unsafe) => {
+                if (typeof unsafe !== 'string') return unsafe;
+                return unsafe
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+        }
+    };
+
+    // 主应用
+    document.addEventListener('DOMContentLoaded', function() {
+        // 初始化变量
+        let membersData = [];
+        let currentPage = 1;
+        const pageSize = 10;
+        let currentEditingMember = null;
+        let isSearching = false;
+
+        // DOM 元素
+        const elements = {
+            memberTableBody: document.getElementById('members-tbody'),
+            searchInput: document.getElementById('search-input'),
+            addMemberBtn: document.getElementById('add-member'),
+            memberModal: document.getElementById('member-modal'),
+            closeModalBtn: document.getElementById('close-modal'),
+            cancelMemberBtn: document.getElementById('cancel-member'),
+            saveMemberBtn: document.getElementById('save-member'),
+            modalTitle: document.getElementById('modal-title'),
+            importBtn: document.getElementById('import-btn'),
+            exportBtn: document.getElementById('export-btn'),
+            resetFilterBtn: document.getElementById('reset-filter'),
+            applyFilterBtn: document.getElementById('apply-filter'),
+            memberCount: document.getElementById('member-count'),
+            paginationInfo: document.getElementById('pagination-info'),
+            prevPageBtn: document.getElementById('prev-page'),
+            nextPageBtn: document.getElementById('next-page')
+        };
+
+        // 检查必要的DOM元素
+        console.log('DOM元素检查:', elements);
+
+        // 初始化应用
+        async function initApp() {
+            try {
+                await loadMembers();
+                await loadMemberStats();
+                setupEventListeners();
+                console.log('应用初始化完成');
+            } catch (error) {
+                console.error('应用初始化失败:', error);
+            }
+        }
+
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 搜索功能
+            if (elements.searchInput) {
+                elements.searchInput.addEventListener('input', debounce(handleSearch, 500));
+            }
+
+            // 模态框控制
+            if (elements.addMemberBtn) {
+                elements.addMemberBtn.addEventListener('click', showAddMemberModal);
+            }
+
+            if (elements.closeModalBtn) {
+                elements.closeModalBtn.addEventListener('click', hideMemberModal);
+            }
+
+            if (elements.cancelMemberBtn) {
+                elements.cancelMemberBtn.addEventListener('click', hideMemberModal);
+            }
+
+            if (elements.saveMemberBtn) {
+                elements.saveMemberBtn.addEventListener('click', handleSaveMember);
+            }
+
+            // 筛选功能
+            if (elements.resetFilterBtn) {
+                elements.resetFilterBtn.addEventListener('click', resetFilter);
+            }
+
+            if (elements.applyFilterBtn) {
+                elements.applyFilterBtn.addEventListener('click', handleFilter);
+            }
+
+            // 导入导出
+            if (elements.importBtn) {
+                elements.importBtn.addEventListener('click', () => {
+                    api.showMessage('导入功能开发中', 'warning');
+                });
+            }
+
+            if (elements.exportBtn) {
+                elements.exportBtn.addEventListener('click', () => {
+                    api.showMessage('导出功能开发中', 'warning');
+                });
+            }
+
+            // 分页
+            if (elements.prevPageBtn) {
+                elements.prevPageBtn.addEventListener('click', () => {
+                    if (currentPage > 1) {
+                        loadMembers(currentPage - 1);
+                    }
+                });
+            }
+
+            if (elements.nextPageBtn) {
+                elements.nextPageBtn.addEventListener('click', () => {
+                    loadMembers(currentPage + 1);
+                });
+            }
+        }
+
+        // 加载会员数据
+        async function loadMembers(page = 1) {
+            try {
+                console.log(`加载会员数据，第 ${page} 页`);
+                const response = await api.memberAPI.getAll();
+                membersData = Array.isArray(response) ? response : [];
+                console.log(`获取到 ${membersData.length} 条会员数据`);
+
+                // 简单分页逻辑
+                const startIndex = (page - 1) * pageSize;
+                const endIndex = startIndex + pageSize;
+                const pagedData = membersData.slice(startIndex, endIndex);
+
+                renderMemberTable(pagedData);
+                updatePagination(membersData.length, page);
+                currentPage = page;
+                isSearching = false;
+            } catch (error) {
+                console.error('加载会员数据失败:', error);
+                showEmptyState('数据加载失败，请检查网络连接或后端服务');
+            }
+        }
+
+        // 加载会员统计
+        async function loadMemberStats() {
+            try {
+                const stats = await api.memberAPI.getStats();
+                updateStatsCards(stats);
+            } catch (error) {
+                console.error('加载统计数据失败:', error);
+                // 使用前端计算的统计数据
+                updateStatsCards(calculateStatsFromData(membersData));
+            }
+        }
+
+        // 从前端数据计算统计
+        function calculateStatsFromData(members) {
+            const total = members.length;
+            const vipCount = members.filter(m => m.level >= 3).length;
+
+            // 计算最近30天新增会员
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            const newCount = members.filter(m => {
+                if (!m.createTime) return false;
+                return new Date(m.createTime) >= thirtyDaysAgo;
+            }).length;
+
+            // 沉睡会员（假设90天未消费）
+            const ninetyDaysAgo = new Date();
+            ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+            const sleepingCount = members.filter(m => {
+                if (!m.lastConsumptionDate) return true;
+                return new Date(m.lastConsumptionDate) < ninetyDaysAgo;
+            }).length;
+
+            return {
+                totalMembers: total,
+                vipMembers: vipCount,
+                newMembers: newCount,
+                sleepingMembers: sleepingCount,
+                totalGrowth: Math.floor(total * 0.1),
+                vipGrowth: Math.floor(vipCount * 0.1),
+                newGrowth: newCount,
+                sleepingGrowth: -Math.floor(sleepingCount * 0.1)
+            };
+        }
+
+        // 渲染会员表格
+        function renderMemberTable(members) {
+            if (!elements.memberTableBody) {
+                console.error('会员表格tbody未找到');
+                return;
+            }
+
+            elements.memberTableBody.innerHTML = '';
+
+            if (!members || members.length === 0) {
+                showEmptyState('暂无会员数据');
+                return;
+            }
+
+            members.forEach((member, index) => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50 transition-colors';
+
+                const levelBadge = getLevelBadge(member.level);
+                const consumptionCount = member.consumptionCount || 0;
+                const lastConsumption = member.lastConsumptionDate ?
+                    api.utils.formatDate(member.lastConsumptionDate) : '-';
+
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <img src="https://picsum.photos/40/40?random=${index + 40}"
+                                 alt="会员头像"
+                                 class="w-10 h-10 rounded-full mr-3">
+                            <div>
+                                <div class="text-sm font-medium">${api.utils.escapeHtml(member.name)}</div>
+                                <div class="text-xs text-gray-500">ID: ${member.memberId}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${api.utils.formatPhone(member.phone)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${levelBadge}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${member.points || 0}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${consumptionCount}次</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${lastConsumption}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <button class="text-primary hover:underline mr-3" onclick="showMemberDetail('${member.memberId}')">详情</button>
+                        <button class="text-secondary hover:underline mr-3" onclick="editMember('${member.memberId}')">编辑</button>
+                        <button class="text-red-500 hover:underline" onclick="deleteMember('${member.memberId}')">删除</button>
+                    </td>
+                `;
+                elements.memberTableBody.appendChild(row);
+            });
+        }
+
+        // 显示空状态
+        function showEmptyState(message) {
+            if (!elements.memberTableBody) return;
+
+            elements.memberTableBody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="px-6 py-8 text-center text-gray-500">
+                        <i class="fa fa-users text-4xl mb-2 text-gray-300"></i>
+                        <p>${message}</p>
+                        ${!isSearching ? `<button onclick="showAddMemberModal()" class="mt-2 btn btn-primary">
+                            <i class="fa fa-plus"></i> 新增会员
+                        </button>` : ''}
+                    </td>
+                </tr>
+            `;
+        }
+
+        // 更新统计卡片
+        function updateStatsCards(stats) {
+            if (!stats) return;
+
+            // 总会员数
+            const totalElement = document.getElementById('total-members');
+            const totalGrowthElement = document.getElementById('total-growth');
+            if (totalElement) totalElement.textContent = `${stats.totalMembers || 0} 人`;
+            if (totalGrowthElement) totalGrowthElement.innerHTML = `<i class="fa fa-arrow-up mr-1"></i> ${stats.totalGrowth || 0} 人`;
+
+            // VIP会员数
+            const vipElement = document.getElementById('vip-members');
+            const vipGrowthElement = document.getElementById('vip-growth');
+            if (vipElement) vipElement.textContent = `${stats.vipMembers || 0} 人`;
+            if (vipGrowthElement) vipGrowthElement.innerHTML = `<i class="fa fa-arrow-up mr-1"></i> ${stats.vipGrowth || 0} 人`;
+
+            // 新增会员
+            const newElement = document.getElementById('new-members');
+            const newGrowthElement = document.getElementById('new-growth');
+            if (newElement) newElement.textContent = `${stats.newMembers || 0} 人`;
+            if (newGrowthElement) newGrowthElement.innerHTML = `<i class="fa fa-arrow-up mr-1"></i> ${stats.newGrowth || 0} 人`;
+
+            // 沉睡会员
+            const sleepingElement = document.getElementById('sleeping-members');
+            const sleepingGrowthElement = document.getElementById('sleeping-growth');
+            if (sleepingElement) sleepingElement.textContent = `${stats.sleepingMembers || 0} 人`;
+            if (sleepingGrowthElement) sleepingGrowthElement.innerHTML = `<i class="fa fa-arrow-down mr-1"></i> ${Math.abs(stats.sleepingGrowth || 0)} 人`;
+        }
+
+        // 搜索处理
+        async function handleSearch(event) {
+            const keyword = event.target.value.trim();
+
+            if (keyword === '') {
+                await loadMembers();
+                return;
+            }
+
+            try {
+                console.log('搜索关键词:', keyword);
+                isSearching = true;
+                const response = await api.memberAPI.search(keyword);
+                const members = response.data || response;
+                console.log(`搜索到 ${members.length} 条结果`);
+                renderMemberTable(members);
+
+                // 更新分页信息
+                if (elements.memberCount) {
+                    elements.memberCount.textContent = `共 ${members.length} 位会员`;
+                }
+                if (elements.paginationInfo) {
+                    elements.paginationInfo.textContent = `显示 1-${members.length} 条，共 ${members.length} 条`;
+                }
+            } catch (error) {
+                console.error('搜索失败:', error);
+                api.showMessage('搜索失败', 'error');
+            }
+        }
+
+        // 筛选处理
+        async function handleFilter() {
+            const name = document.getElementById('filter-name').value.trim();
+            const phone = document.getElementById('filter-phone').value.trim();
+            const level = document.getElementById('filter-level').value;
+            const date = document.getElementById('filter-date').value;
+
+            // 前端筛选逻辑
+            const filtered = membersData.filter(member => {
+                const nameMatch = !name || member.name.toLowerCase().includes(name.toLowerCase());
+                const phoneMatch = !phone || member.phone.includes(phone);
+                const levelMatch = !level || member.level == level;
+                const dateMatch = !date || api.utils.formatDate(member.createTime) === date;
+
+                return nameMatch && phoneMatch && levelMatch && dateMatch;
+            });
+
+            renderMemberTable(filtered);
+            isSearching = true;
+
+            // 更新显示信息
+            if (elements.memberCount) {
+                elements.memberCount.textContent = `共 ${filtered.length} 位会员`;
+            }
+            if (elements.paginationInfo) {
+                elements.paginationInfo.textContent = `显示 1-${filtered.length} 条，共 ${filtered.length} 条`;
+            }
+        }
+
+        // 重置筛选
+        function resetFilter() {
+            document.getElementById('filter-name').value = '';
+            document.getElementById('filter-phone').value = '';
+            document.getElementById('filter-level').value = '';
+            document.getElementById('filter-date').value = '';
+            loadMembers();
+        }
+
+        // 显示新增会员模态框
+        function showAddMemberModal() {
+            currentEditingMember = null;
+            resetMemberForm();
+            elements.modalTitle.textContent = '新增会员';
+            elements.memberModal.classList.remove('hidden');
+        }
+
+        // 隐藏会员模态框
+        function hideMemberModal() {
+            elements.memberModal.classList.add('hidden');
+            resetMemberForm();
+        }
+
+        // 重置会员表单
+        function resetMemberForm() {
+            document.getElementById('member-name').value = '';
+            document.getElementById('member-phone').value = '';
+            document.getElementById('member-level').value = '0';
+            document.getElementById('birth-date').value = '';
+            document.getElementById('address').value = '';
+            document.getElementById('allergy-history').value = '';
+            document.getElementById('remark').value = '';
+
+            // 重置单选按钮
+            const maleRadio = document.querySelector('input[value="male"]');
+            if (maleRadio) maleRadio.checked = true;
+        }
+
+        // 保存会员处理
+        async function handleSaveMember() {
+            const formData = getMemberFormData();
+
+            if (!validateMemberForm(formData)) {
+                return;
+            }
+
+            try {
+                if (currentEditingMember) {
+                    // 更新会员
+                    await api.memberAPI.update(currentEditingMember, formData);
+                    api.showMessage('会员更新成功');
+                } else {
+                    // 新增会员
+                    await api.memberAPI.create(formData);
+                    api.showMessage('会员添加成功');
+                }
+
+                hideMemberModal();
+                await loadMembers(currentPage);
+                await loadMemberStats();
+            } catch (error) {
+                console.error('保存会员失败:', error);
+                api.showMessage('保存失败: ' + error.message, 'error');
+            }
+        }
+
+        // 获取会员表单数据
+        function getMemberFormData() {
+            const genderRadio = document.querySelector('input[name="gender"]:checked');
+
+            return {
+                name: document.getElementById('member-name').value,
+                phone: document.getElementById('member-phone').value,
+                level: parseInt(document.getElementById('member-level').value) || 0,
+                cardNo: generateCardNo(), // 自动生成卡号
+                allergicHistory: document.getElementById('allergy-history').value || null,
+                medicalCardNo: document.getElementById('medical-card')?.value || null
+            };
+        }
+
+        // 生成会员卡号
+        function generateCardNo() {
+            return 'C' + Date.now().toString().slice(-8);
+        }
+
+        // 验证会员表单
+        function validateMemberForm(data) {
+            if (!data.name.trim()) {
+                api.showMessage('请输入会员姓名', 'error');
+                return false;
+            }
+
+            if (!data.phone.trim()) {
+                api.showMessage('请输入手机号码', 'error');
+                return false;
+            }
+
+            if (!/^1[3-9]\d{9}$/.test(data.phone)) {
+                api.showMessage('请输入正确的手机号码', 'error');
+                return false;
+            }
+
+            return true;
+        }
+
+        // 更新分页
+        function updatePagination(totalItems, currentPage) {
+            const totalPages = Math.ceil(totalItems / pageSize);
+
+            // 更新显示信息
+            if (elements.memberCount) {
+                elements.memberCount.textContent = `共 ${totalItems} 位会员`;
+            }
+
+            if (elements.paginationInfo) {
+                const start = (currentPage - 1) * pageSize + 1;
+                const end = Math.min(currentPage * pageSize, totalItems);
+                elements.paginationInfo.textContent = `显示 ${start}-${end} 条，共 ${totalItems} 条`;
+            }
+
+            // 更新分页按钮状态
+            if (elements.prevPageBtn) {
+                elements.prevPageBtn.disabled = currentPage === 1;
+            }
+
+            if (elements.nextPageBtn) {
+                elements.nextPageBtn.disabled = currentPage >= totalPages;
+            }
+
+            // 更新页码按钮（简化实现）
+            const paginationContainer = document.getElementById('pagination-buttons');
+            if (paginationContainer) {
+                // 清除现有的页码按钮（保留前后按钮）
+                const pageButtons = paginationContainer.querySelectorAll('button:not(#prev-page):not(#next-page)');
+                pageButtons.forEach(btn => btn.remove());
+
+                // 添加新的页码按钮
+                const prevBtn = elements.prevPageBtn;
+                const nextBtn = elements.nextPageBtn;
+
+                // 计算显示的页码范围
+                let startPage = Math.max(1, currentPage - 1);
+                let endPage = Math.min(totalPages, currentPage + 1);
+
+                // 确保显示3个页码
+                if (endPage - startPage < 2) {
+                    if (startPage === 1) {
+                        endPage = Math.min(totalPages, startPage + 2);
+                    } else {
+                        startPage = Math.max(1, endPage - 2);
+                    }
+                }
+
+                // 插入页码按钮
+                for (let i = startPage; i <= endPage; i++) {
+                    const pageBtn = document.createElement('button');
+                    pageBtn.className = `w-8 h-8 flex items-center justify-center rounded border ${i === currentPage ? 'border-primary bg-primary text-white' : 'border-gray-300 hover:bg-gray-50'}`;
+                    pageBtn.textContent = i;
+                    pageBtn.addEventListener('click', () => loadMembers(i));
+                    paginationContainer.insertBefore(pageBtn, nextBtn);
+                }
+            }
+        }
+
+        // 工具函数
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        function getLevelBadge(level) {
+            const badges = {
+                0: '<span class="badge bg-gray-100 text-gray-800">普通会员</span>',
+                1: '<span class="badge bg-blue-100 text-blue-800">白银会员</span>',
+                2: '<span class="badge bg-yellow-100 text-yellow-800">黄金会员</span>',
+                3: '<span class="badge bg-purple-100 text-purple-800">铂金会员</span>',
+                4: '<span class="badge bg-red-100 text-red-800">VIP会员</span>'
+            };
+            return badges[level] || badges[0];
+        }
+
+        // 全局函数
+        window.showMemberDetail = async function(memberId) {
+            try {
+                const member = await api.memberAPI.getById(memberId);
+                const levelName = getLevelBadge(member.level).match(/>(.*?)</)[1];
+                alert(`会员详情:\n姓名: ${member.name}\n手机: ${member.phone}\n等级: ${levelName}\n积分: ${member.points}\n注册时间: ${api.utils.formatDate(member.createTime)}`);
+            } catch (error) {
+                api.showMessage('获取会员详情失败', 'error');
+            }
+        };
+
+        window.editMember = async function(memberId) {
+            try {
+                const member = await api.memberAPI.getById(memberId);
+                currentEditingMember = memberId;
+
+                // 填充表单
+                document.getElementById('member-name').value = member.name || '';
+                document.getElementById('member-phone').value = member.phone || '';
+                document.getElementById('member-level').value = member.level || 0;
+                document.getElementById('allergy-history').value = member.allergicHistory || '';
+
+                // 显示模态框
+                elements.modalTitle.textContent = '编辑会员';
+                elements.memberModal.classList.remove('hidden');
+            } catch (error) {
+                console.error('获取会员信息失败:', error);
+                api.showMessage('获取会员信息失败', 'error');
+            }
+        };
+
+        window.deleteMember = async function(memberId) {
+            if (!confirm('确定要删除该会员吗？此操作不可恢复。')) {
+                return;
+            }
+
+            try {
+                await api.memberAPI.delete(memberId);
+                api.showMessage('会员删除成功');
+                await loadMembers(currentPage);
+                await loadMemberStats();
+            } catch (error) {
+                console.error('删除失败:', error);
+                api.showMessage('删除失败: ' + error.message, 'error');
+            }
+        };
+
+        window.showAddMemberModal = showAddMemberModal;
+
+        // 初始化应用
+        initApp();
+    });
+
+    // 日期时间更新函数
+    function updateDateTime() {
+        const now = new Date();
+        const options = { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long' };
+        const dateElement = document.getElementById('current-date');
+        const timeElement = document.getElementById('current-time');
+
+        if (dateElement) {
+            dateElement.textContent = now.toLocaleDateString('zh-CN', options);
+        }
+        if (timeElement) {
+            const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit' };
+            timeElement.textContent = now.toLocaleTimeString('zh-CN', timeOptions);
+        }
+    }
+
+    // 侧边栏切换
+    document.getElementById('sidebar-toggle')?.addEventListener('click', function() {
+        const sidebar = document.querySelector('aside');
+        sidebar.classList.toggle('-translate-x-full');
+    });
+
+    // 初始化日期时间
+    updateDateTime();
+    setInterval(updateDateTime, 1000);
+</script>
+</body>
+</html>
+

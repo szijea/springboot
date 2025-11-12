@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智慧药房收银系统 - 员工管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+
+    <!-- 配置Tailwind -->
+    <script>
+        tailwind.config = {
+          theme: {
+            extend: {
+              colors: {
+                primary: '#165DFF',
+                secondary: '#36B37E',
+                accent: '#FF5630',
+                warning: '#FFAB00',
+              },
+              fontFamily: {
+                inter: ['Inter', 'system-ui', 'sans-serif'],
+              },
+            },
+          }
+        }
+    </script>
+
+    <style type="text/tailwindcss">
+        @layer utilities {
+          .sidebar-item {
+            @apply flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 cursor-pointer;
+          }
+          .sidebar-item.active {
+            @apply bg-primary text-white;
+          }
+          .sidebar-item:not(.active):hover {
+            @apply bg-gray-100;
+          }
+          .card {
+            @apply bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden transition-all duration-300 hover:shadow-md;
+          }
+          .btn {
+            @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2;
+          }
+          .btn-primary {
+            @apply bg-primary text-white hover:bg-primary/90;
+          }
+          .btn-outline {
+            @apply border border-gray-300 hover:bg-gray-50;
+          }
+          .btn-danger {
+            @apply bg-accent text-white hover:bg-accent/90;
+          }
+          .input {
+            @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all;
+          }
+          .badge {
+            @apply px-2 py-1 rounded-full text-xs font-medium;
+          }
+          .modal-backdrop {
+            @apply fixed inset-0 bg-black/50 z-40 hidden;
+          }
+          .modal {
+            @apply fixed inset-0 z-50 flex items-center justify-center hidden;
+          }
+          .modal-content {
+            @apply bg-white rounded-xl w-full max-w-md mx-4 shadow-lg transform transition-all;
+          }
+          .temperature-normal {
+            @apply bg-green-100 text-green-800;
+          }
+          .temperature-high {
+            @apply bg-warning/20 text-warning;
+          }
+        }
+    </style>
+</head>
+
+<body class="font-inter bg-gray-50 text-gray-800 min-h-screen flex">
+<!-- 注入统一导航（侧边栏 + 顶部） -->
+<div id="common-nav" data-active="staff"></div>
+
+<main class="flex-1 flex flex-col pt-16">
+
+    <!-- 内容区域 -->
+    <div class="flex-1 overflow-y-auto p-6 bg-gray-50">
+        <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+            <div>
+                <h2 class="text-[clamp(1.25rem,2vw,1.75rem)] font-bold">员工管理</h2>
+                <p class="text-gray-500">管理员工信息、状态及体温记录</p>
+            </div>
+            <div class="flex gap-3">
+                <button class="btn btn-outline" id="refresh-staff">
+                    <i class="fa fa-refresh"></i> 刷新
+                </button>
+                <button class="btn btn-primary" id="add-staff">
+                    <i class="fa fa-plus"></i> 新增员工
+                </button>
+            </div>
+        </div>
+
+        <!-- 店铺筛选 + 搜索区域 -->
+        <div class="mb-4 flex flex-col sm:flex-row gap-4">
+            <div class="w-full sm:w-1/4">
+                <select id="shop-select" class="input">
+                    <option value="">全部店铺</option>
+                    <!-- 店铺选项通过JS动态生成 -->
+                </select>
+            </div>
+            <div class="w-full sm:w-3/4">
+                <input type="text" placeholder="搜索员工姓名、职位..."
+                       class="input w-full" id="staff-search">
+            </div>
+        </div>
+
+        <!-- 员工列表 -->
+        <div class="card">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">所属店铺</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">员工ID</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">职位</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">联系电话</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">入职日期</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最新体温</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                    </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200" id="staff-table">
+                    <!-- 员工数据通过JS动态生成 -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="p-4 border-t border-gray-100 flex items-center justify-between">
+                <div class="text-sm text-gray-500">显示 1 至 10 条，共 24 条记录</div>
+                <div class="flex gap-2">
+                    <button class="btn btn-outline px-3 py-1 text-sm" disabled>上一页</button>
+                    <button class="btn btn-outline px-3 py-1 text-sm bg-primary text-white">1</button>
+                    <button class="btn btn-outline px-3 py-1 text-sm">2</button>
+                    <button class="btn btn-outline px-3 py-1 text-sm">3</button>
+                    <button class="btn btn-outline px-3 py-1 text-sm">下一页</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- 注入统一导航脚本 -->
+<script src="js/common-nav.js"></script>
+
+<!-- 员工模态框 -->
+<div class="modal-backdrop" id="staff-modal-backdrop"></div>
+<div class="modal" id="staff-modal">
+    <div class="modal-content p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold" id="modal-title">新增员工</h3>
+            <button class="text-gray-400 hover:text-gray-600" id="close-staff-modal">
+                <i class="fa fa-times"></i>
+            </button>
+        </div>
+        <form id="staff-form">
+            <input type="hidden" id="staff-id">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">所属店铺 <span class="text-red-500">*</span></label>
+                    <select id="staff-shop" class="input" required>
+                        <option value="">请选择店铺</option>
+                        <!-- 店铺选项通过JS动态生成 -->
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">姓名 <span class="text-red-500">*</span></label>
+                    <input type="text" id="staff-name" class="input" placeholder="请输入员工姓名" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">职位 <span class="text-red-500">*</span></label>
+                    <select id="staff-position" class="input" required>
+                        <option value="">请选择职位</option>
+                        <option value="manager">店长</option>
+                        <option value="pharmacist">药师</option>
+                        <option value="cashier">收银员</option>
+                        <option value="stockman">库管员</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">联系电话 <span class="text-red-500">*</span></label>
+                    <input type="tel" id="staff-phone" class="input" placeholder="请输入联系电话" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">入职日期 <span class="text-red-500">*</span></label>
+                    <input type="date" id="staff-hireDate" class="input" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">今日体温 (°C) <span class="text-red-500">*</span></label>
+                    <input type="number" id="staff-temperature" class="input"
+                           placeholder="请输入今日体温" step="0.1" min="35" max="42" required>
+                </div>
+                <div id="edit-status-container" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">状态</label>
+                    <select id="staff-status" class="input">
+                        <option value="true">在职</option>
+                        <option value="false">离职</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-6 flex gap-3 justify-end">
+                <button type="button" class="btn btn-outline" id="cancel-staff">取消</button>
+                <button type="submit" class="btn btn-primary">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 体温记录模态框 -->
+<div class="modal-backdrop" id="temperature-modal-backdrop"></div>
+<div class="modal" id="temperature-modal">
+    <div class="modal-content p-6 max-w-lg">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold" id="temperature-modal-title">员工体温记录</h3>
+            <button class="text-gray-400 hover:text-gray-600" id="close-temperature-modal">
+                <i class="fa fa-times"></i>
+            </button>
+        </div>
+        <div id="temperature-record-container">
+            <div class="text-center text-gray-500 py-8">
+                <i class="fa fa-thermometer-half text-4xl mb-2"></i>
+                <p>暂无体温记录</p>
+            </div>
+        </div>
+        <div class="mt-6 flex justify-end">
+            <button type="button" class="btn btn-outline" id="close-temperature-btn">关闭</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 模拟API工具
+    const api = {
+        utils: {
+            formatDate(dateStr) {
+                if (!dateStr) return '';
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('zh-CN');
+            }
+        },
+        showMessage(msg, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `fixed top-20 right-4 px-4 py-3 rounded-lg shadow-lg z-50 transition-all duration-300 transform translate-x-full`;
+
+            if (type === 'success') {
+                toast.classList.add('bg-green-50', 'text-green-800', 'border', 'border-green-200');
+                toast.innerHTML = `<i class="fa fa-check-circle mr-2"></i>${msg}`;
+            } else {
+                toast.classList.add('bg-red-50', 'text-red-800', 'border', 'border-red-200');
+                toast.innerHTML = `<i class="fa fa-exclamation-circle mr-2"></i>${msg}`;
+            }
+
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.remove('translate-x-full');
+                toast.classList.add('translate-x-0');
+            }, 10);
+            setTimeout(() => {
+                toast.classList.remove('translate-x-0');
+                toast.classList.add('translate-x-full');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        },
+        // 店铺API
+        shopAPI: {
+            async getAll() {
+                await new Promise(resolve => setTimeout(resolve, 300));
+                return [
+                    { id: 1, name: '总店（人民路店）' },
+                    { id: 2, name: '分店（建设路店）' },
+                    { id: 3, name: '分店（和平路店）' }
+                ];
+            }
+        },
+        // 员工API
+        staffAPI: {
+            async getAll() {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                // 员工数据关联店铺ID
+                return [
+                    { id: 1, shopId: 1, shopName: '总店（人民路店）', name: '张三', position: 'manager', phone: '13800138000', hireDate: '2020-01-15', status: true },
+                    { id: 2, shopId: 1, shopName: '总店（人民路店）', name: '李四', position: 'pharmacist', phone: '13900139000', hireDate: '2021-03-20', status: true },
+                    { id: 3, shopId: 2, shopName: '分店（建设路店）', name: '王五', position: 'cashier', phone: '13700137000', hireDate: '2022-05-10', status: true },
+                    { id: 4, shopId: 2, shopName: '分店（建设路店）', name: '赵六', position: 'stockman', phone: '13600136000', hireDate: '2022-07-05', status: false },
+                    { id: 5, shopId: 3, shopName: '分店（和平路店）', name: '孙七', position: 'pharmacist', phone: '13500135000', hireDate: '2023-01-18', status: true },
+                    { id: 6, shopId: 3, shopName: '分店（和平路店）', name: '周八', position: 'manager', phone: '13400134000', hireDate: '2021-11-30', status: true }
+                ];
+            },
+            async create(data) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                return { success: true };
+            },
+            async update(id, data) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                return { success: true };
+            },
+            async updateStatus(id, status) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                return { success: true };
+            }
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // 初始化日期时间显示
+        initDateTime();
+
+        // 初始化侧边栏切换
+        initSidebarToggle();
+
+        // 初始化模态框
+        initModal('add-staff', 'staff-modal', 'close-staff-modal', 'staff-modal-backdrop', 'cancel-staff');
+        initModal(null, 'temperature-modal', 'close-temperature-modal', 'temperature-modal-backdrop', 'close-temperature-btn');
+
+        // 初始化按键交互
+        initKeyInteractions();
+
+        // 数据存储
+        let shopList = []; // 店铺列表
+        let staffList = []; // 全部员工列表
+        let currentShopId = ''; // 当前选中的店铺ID
+
+        // DOM元素
+        const staffTable = document.getElementById('staff-table');
+        const searchInput = document.getElementById('staff-search');
+        const shopSelect = document.getElementById('shop-select');
+        const staffShopSelect = document.getElementById('staff-shop');
+
+        // 加载店铺数据
+        async function loadShops() {
+            try {
+                shopList = await api.shopAPI.getAll();
+                // 渲染店铺下拉框
+                renderShopOptions();
+            } catch (error) {
+                api.showMessage('加载店铺数据失败', 'error');
+            }
+        }
+
+        // 渲染店铺下拉框选项
+        function renderShopOptions() {
+            // 清空现有选项（保留"全部店铺"/"请选择店铺"）
+            while (shopSelect.options.length > 1) {
+                shopSelect.remove(1);
+            }
+            while (staffShopSelect.options.length > 1) {
+                staffShopSelect.remove(1);
+            }
+
+            // 添加店铺选项
+            shopList.forEach(shop => {
+                // 店铺筛选下拉框
+                const option1 = document.createElement('option');
+                option1.value = shop.id;
+                option1.textContent = shop.name;
+                shopSelect.appendChild(option1);
+
+                // 员工表单中的店铺选择框
+                const option2 = document.createElement('option');
+                option2.value = shop.id;
+                option2.textContent = shop.name;
+                staffShopSelect.appendChild(option2);
+            });
+        }
+
+        // 加载员工数据
+        async function loadStaff() {
+            try {
+                const response = await api.staffAPI.getAll();
+                staffList = response.map(staff => ({
+                    ...staff,
+                    // 生成模拟体温数据
+                    temperature: (36 + Math.random() * 0.5).toFixed(1),
+                    temperatureRecord: Array.from({length: 5}, (_, i) => ({
+                        date: new Date(Date.now() - i * 86400000).toISOString().split('T')[0],
+                        temperature: (36 + Math.random() * 0.8).toFixed(1)
+                    }))
+                }));
+                // 根据当前筛选条件渲染
+                filterAndRenderStaff();
+            } catch (error) {
+                api.showMessage('加载员工数据失败', 'error');
+            }
+        }
+
+        // 根据店铺和搜索关键词筛选并渲染员工
+        function filterAndRenderStaff() {
+            let filtered = [...staffList];
+
+            // 店铺筛选
+            if (currentShopId) {
+                filtered = filtered.filter(staff => staff.shopId == currentShopId);
+            }
+
+            // 搜索筛选
+            const keyword = searchInput.value.toLowerCase().trim();
+            if (keyword) {
+                filtered = filtered.filter(staff =>
+                    staff.name.toLowerCase().includes(keyword) ||
+                    formatPosition(staff.position).toLowerCase().includes(keyword)
+                );
+            }
+
+            renderStaffTable(filtered);
+        }
+
+        // 渲染员工表格
+        function renderStaffTable(staffs) {
+            staffTable.innerHTML = '';
+            if (staffs.length === 0) {
+                const emptyRow = document.createElement('tr');
+                emptyRow.innerHTML = `
+                    <td colspan="9" class="px-6 py-10 text-center text-gray-500">
+                        <i class="fa fa-users text-4xl mb-2"></i>
+                        <p>暂无员工数据</p>
+                    </td>
+                `;
+                staffTable.appendChild(emptyRow);
+                return;
+            }
+
+            staffs.forEach(staff => {
+                const isHighTemperature = parseFloat(staff.temperature) >= 37.3;
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50 transition-colors';
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">${staff.shopName}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${staff.id}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${staff.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${formatPosition(staff.position)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${staff.phone}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${api.utils.formatDate(staff.hireDate)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="badge ${isHighTemperature ? 'temperature-high' : 'temperature-normal'}"
+                              onclick="showTemperatureRecord(${staff.id})">
+                            ${staff.temperature}°C
+                            <i class="fa fa-history ml-1 text-xs"></i>
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="badge ${staff.status ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
+                            ${staff.status ? '在职' : '离职'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <button class="text-primary hover:underline mr-3" onclick="editStaff(${staff.id})">编辑</button>
+                        <button class="text-red-500 hover:underline" onclick="toggleStaffStatus(${staff.id}, ${!staff.status})">
+                            ${staff.status ? '设为离职' : '设为在职'}
+                        </button>
+                    </td>
+                `;
+                staffTable.appendChild(row);
+            });
+        }
+
+        // 显示体温记录
+        window.showTemperatureRecord = function(id) {
+            const staff = staffList.find(s => s.id === id);
+            if (staff) {
+                document.getElementById('temperature-modal-title').textContent =
+                    `${staff.shopName} - ${staff.name}的体温记录`;
+
+                const recordContainer = document.getElementById('temperature-record-container');
+                if (staff.temperatureRecord && staff.temperatureRecord.length > 0) {
+                    let recordsHtml = `
+                        <div class="space-y-3">
+                            ${staff.temperatureRecord.map(record => {
+                                const isHigh = parseFloat(record.temperature) >= 37.3;
+                                return `
+                                    <div class="flex justify-between items-center p-3 border rounded-lg ${isHigh ? 'border-warning/30 bg-warning/5' : 'border-gray-100'}">
+                                        <div>
+                                            <div class="text-sm font-medium">${record.date}</div>
+                                            <div class="text-xs text-gray-500">每日体温记录</div>
+                                        </div>
+                                        <div class="text-lg font-bold ${isHigh ? 'text-warning' : 'text-green-600'}">
+                                            ${record.temperature}°C
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    `;
+                    recordContainer.innerHTML = recordsHtml;
+                } else {
+                    recordContainer.innerHTML = `
+                        <div class="text-center text-gray-500 py-8">
+                            <i class="fa fa-thermometer-half text-4xl mb-2"></i>
+                            <p>暂无体温记录</p>
+                        </div>
+                    `;
+                }
+                openModal('temperature-modal', 'temperature-modal-backdrop');
+            }
+        };
+
+        // 格式化职位显示
+        function formatPosition(position) {
+            const positions = {
+                'manager': '店长',
+                'pharmacist': '药师',
+                'cashier': '收银员',
+                'stockman': '库管员'
+            };
+            return positions[position] || position;
+        }
+
+        // 事件监听：店铺筛选
+        shopSelect.addEventListener('change', function() {
+            currentShopId = this.value;
+            filterAndRenderStaff();
+        });
+
+        // 事件监听：搜索
+        searchInput.addEventListener('input', filterAndRenderStaff);
+
+        // 事件监听：刷新
+        document.getElementById('refresh-staff').addEventListener('click', function() {
+            this.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 刷新中';
+            setTimeout(() => {
+                loadStaff();
+                this.innerHTML = '<i class="fa fa-refresh"></i> 刷新';
+                api.showMessage('数据已刷新');
+            }, 800);
+        });
+
+        // 表单提交处理
+        document.getElementById('staff-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const staffData = {
+                shopId: document.getElementById('staff-shop').value,
+                name: document.getElementById('staff-name').value,
+                position: document.getElementById('staff-position').value,
+                phone: document.getElementById('staff-phone').value,
+                hireDate: document.getElementById('staff-hireDate').value,
+                temperature: document.getElementById('staff-temperature').value,
+                status: document.getElementById('staff-id').value ?
+                    document.getElementById('staff-status').value === 'true' : true
+            };
+
+            // 验证店铺选择
+            if (!staffData.shopId) {
+                api.showMessage('请选择所属店铺', 'error');
+                return;
+            }
+
+            // 体温验证
+            const temp = parseFloat(staffData.temperature);
+            if (temp < 35 || temp > 42) {
+                api.showMessage('请输入有效的体温值（35-42°C）', 'error');
+                return;
+            }
+
+            try {
+                const staffId = document.getElementById('staff-id').value;
+                if (staffId) {
+                    await api.staffAPI.update(staffId, staffData);
+                    api.showMessage('员工信息更新成功');
+                } else {
+                    await api.staffAPI.create(staffData);
+                    api.showMessage('员工添加成功');
+                }
+                closeModal('staff-modal', 'staff-modal-backdrop');
+                this.reset();
+                document.getElementById('staff-id').value = '';
+                document.getElementById('edit-status-container').classList.add('hidden');
+                loadStaff();
+            } catch (error) {
+                api.showMessage('操作失败，请重试', 'error');
+            }
+        });
+
+        // 编辑员工
+        window.editStaff = function(id) {
+            const staff = staffList.find(s => s.id === id);
+            if (staff) {
+                document.getElementById('modal-title').textContent = '编辑员工';
+                document.getElementById('staff-id').value = staff.id;
+                document.getElementById('staff-shop').value = staff.shopId;
+                document.getElementById('staff-name').value = staff.name;
+                document.getElementById('staff-position').value = staff.position;
+                document.getElementById('staff-phone').value = staff.phone;
+                document.getElementById('staff-hireDate').value = staff.hireDate.split('T')[0] || staff.hireDate;
+                document.getElementById('staff-temperature').value = staff.temperature;
+                document.getElementById('staff-status').value = staff.status;
+                document.getElementById('edit-status-container').classList.remove('hidden');
+                openModal('staff-modal', 'staff-modal-backdrop');
+            }
+        };
+
+        // 切换员工状态
+        window.toggleStaffStatus = function(id, status) {
+            const staff = staffList.find(s => s.id === id);
+            const confirmMsg = status ?
+                `确定要将${staff.shopName}的${staff.name}设为在职吗？` :
+                `确定要将${staff.shopName}的${staff.name}设为离职吗？`;
+
+            if (confirm(confirmMsg)) {
+                api.staffAPI.updateStatus(id, status)
+                    .then(() => {
+                        api.showMessage('状态更新成功');
+                        loadStaff();
+                    })
+                    .catch(() => api.showMessage('操作失败', 'error'));
+            }
+        };
+
+        // 按键交互功能
+        function initKeyInteractions() {
+            // 全局按键监听
+            document.addEventListener('keydown', function(e) {
+                const activeElement = document.activeElement;
+                const isInputting = activeElement.tagName === 'INPUT' ||
+                                   activeElement.tagName === 'SELECT' ||
+                                   activeElement.tagName === 'TEXTAREA' ||
+                                   activeElement.isContentEditable;
+
+                if (isInputting) return;
+
+                // N键：新增员工
+                if (e.key.toLowerCase() === 'n') {
+                    e.preventDefault();
+                    document.getElementById('add-staff').click();
+                }
+
+                // R键：刷新
+                if (e.key.toLowerCase() === 'r') {
+                    e.preventDefault();
+                    document.getElementById('refresh-staff').click();
+                }
+            });
+
+            // 模态框按键
+            const modal = document.getElementById('staff-modal');
+            modal.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closeModal('staff-modal', 'staff-modal-backdrop');
+                }
+
+                if (e.key === 'Enter' && !modal.classList.contains('hidden')) {
+                    const activeElement = document.activeElement;
+                    if (activeElement.tagName !== 'TEXTAREA') {
+                        e.preventDefault();
+                        document.querySelector('#staff-form button[type="submit"]').click();
+                    }
+                }
+            });
+
+            // 体温模态框按键
+            const tempModal = document.getElementById('temperature-modal');
+            tempModal.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closeModal('temperature-modal', 'temperature-modal-backdrop');
+                }
+            });
+
+            // 表格导航
+            document.addEventListener('keydown', function(e) {
+                const activeElement = document.activeElement;
+                if (activeElement.tagName === 'INPUT' || activeElement.tagName === 'SELECT') return;
+
+                const rows = staffTable.querySelectorAll('tr');
+                if (rows.length === 0) return;
+
+                let currentIndex = Array.from(rows).findIndex(row => row.classList.contains('bg-blue-50'));
+
+                // 下箭头
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    rows.forEach(row => row.classList.remove('bg-blue-50'));
+                    const newIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % rows.length;
+                    rows[newIndex].classList.add('bg-blue-50');
+                    rows[newIndex].scrollIntoView({block: 'nearest'});
+                }
+
+                // 上箭头
+                if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    rows.forEach(row => row.classList.remove('bg-blue-50'));
+                    const newIndex = currentIndex === -1 ? rows.length - 1 : (currentIndex - 1 + rows.length) % rows.length;
+                    rows[newIndex].classList.add('bg-blue-50');
+                    rows[newIndex].scrollIntoView({block: 'nearest'});
+                }
+
+                // 回车键：编辑
+                if (e.key === 'Enter' && currentIndex !== -1) {
+                    e.preventDefault();
+                    const id = rows[currentIndex].querySelector('td:nth-child(2)').textContent;
+                    window.editStaff(Number(id));
+                }
+
+                // T键：查看体温
+                if (e.key.toLowerCase() === 't' && currentIndex !== -1) {
+                    e.preventDefault();
+                    const id = rows[currentIndex].querySelector('td:nth-child(2)').textContent;
+                    window.showTemperatureRecord(Number(id));
+                }
+            });
+        }
+
+        // 初始化加载
+        loadShops().then(() => {
+            loadStaff();
+        });
+    });
+
+    // 公共函数
+    function initDateTime() {
+        const dateEl = document.getElementById('current-date');
+        const timeEl = document.getElementById('current-time');
+
+        if (!dateEl || !timeEl) return;
+
+        const updateDateTime = () => {
+            const now = new Date();
+            dateEl.textContent = now.toLocaleDateString('zh-CN', {month: 'long', day: 'numeric', weekday: 'long'});
+            timeEl.textContent = now.toLocaleTimeString('zh-CN');
+        };
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+    }
+
+    function initSidebarToggle() {
+        const toggle = document.getElementById('sidebar-toggle');
+        const sidebar = document.querySelector('aside');
+        if (toggle && sidebar) {
+            toggle.addEventListener('click', () => {
+                sidebar.classList.toggle('w-64');
+                sidebar.classList.toggle('w-0');
+                sidebar.classList.toggle('hidden');
+            });
+        }
+    }
+
+    function initModal(triggerId, modalId, closeId, backdropId, cancelId) {
+        const trigger = triggerId ? document.getElementById(triggerId) : null;
+        const modal = document.getElementById(modalId);
+        const closeBtn = document.getElementById(closeId);
+        const backdrop = document.getElementById(backdropId);
+        const cancelBtn = document.getElementById(cancelId);
+
+        if (!modal || !closeBtn || !backdrop) return;
+
+        trigger?.addEventListener('click', () => openModal(modalId, backdropId));
+        closeBtn?.addEventListener('click', () => closeModal(modalId, backdropId));
+        cancelBtn?.addEventListener('click', () => closeModal(modalId, backdropId));
+        backdrop?.addEventListener('click', () => closeModal(modalId, backdropId));
+    }
+
+    function openModal(modalId, backdropId) {
+        const modal = document.getElementById(modalId);
+        const backdrop = document.getElementById(backdropId);
+
+        if (modal && backdrop) {
+            modal.classList.remove('hidden');
+            backdrop.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+    }
+
+    function closeModal(modalId, backdropId) {
+        const modal = document.getElementById(modalId);
+        const backdrop = document.getElementById(backdropId);
+
+        if (modal && backdrop) {
+            modal.classList.add('hidden');
+            backdrop.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+    }
+</script>
+</body>
+</html>

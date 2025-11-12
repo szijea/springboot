@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智慧药房收银系统 - 库存管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+
+    <!-- 配置Tailwind（与其他页面一致） -->
+    <script>
+        tailwind.config = {
+          theme: {
+            extend: {
+              colors: {
+                primary: '#165DFF',
+                secondary: '#36B37E',
+                accent: '#FF5630',
+              },
+              fontFamily: {
+                inter: ['Inter', 'system-ui', 'sans-serif'],
+              },
+            },
+          }
+        }
+    </script>
+
+    <style type="text/tailwindcss">
+        @layer utilities {
+          .sidebar-item {
+            @apply flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 cursor-pointer;
+          }
+          .sidebar-item.active {
+            @apply bg-primary text-white;
+          }
+          .sidebar-item:not(.active):hover {
+            @apply bg-gray-100;
+          }
+          .card {
+            @apply bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden transition-all duration-300 hover:shadow-md;
+          }
+          .btn {
+            @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2;
+          }
+          .btn-primary {
+            @apply bg-primary text-white hover:bg-primary/90;
+          }
+          .btn-outline {
+            @apply border border-gray-300 hover:bg-gray-50;
+          }
+          .input {
+            @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all;
+          }
+          .badge {
+            @apply px-2 py-1 rounded-full text-xs font-medium;
+          }
+
+          /* 库存状态指示器 */
+          .stock-indicator {
+            @apply inline-flex items-center px-2 py-1 rounded-full text-xs font-medium;
+          }
+          .stock-high {
+            @apply bg-green-100 text-green-800;
+          }
+          .stock-medium {
+            @apply bg-yellow-100 text-yellow-800;
+          }
+          .stock-low {
+            @apply bg-orange-100 text-orange-800;
+          }
+          .stock-critical {
+            @apply bg-red-100 text-red-800;
+          }
+
+          /* 修复滚动问题 */
+          .main-content-container {
+            height: calc(100vh - 64px);
+            overflow-y: auto;
+          }
+
+          /* 分页样式 */
+          .pagination-btn {
+            @apply w-8 h-8 flex items-center justify-center rounded border border-gray-300 hover:bg-gray-50 transition-colors;
+          }
+          .pagination-btn.active {
+            @apply border-primary bg-primary text-white;
+          }
+          .pagination-btn.disabled {
+            @apply text-gray-400 cursor-not-allowed;
+          }
+        }
+    </style>
+</head>
+
+<body class="font-inter bg-gray-50 text-gray-800 min-h-screen flex overflow-hidden">
+<!-- 注入统一导航（侧边栏 + 顶部） -->
+<div id="common-nav" data-active="inventory"></div>
+
+<main class="flex-1 flex flex-col pt-16">
+    <!-- 内容区域 - 修复滚动 -->
+    <div class="main-content-container p-6 bg-gray-50">
+        <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+            <div>
+                <h2 class="text-[clamp(1.25rem,2vw,1.75rem)] font-bold">库存管理</h2>
+                <p class="text-gray-500">实时监控药品库存状态与变动</p>
+            </div>
+            <div class="flex gap-3">
+                <button class="btn btn-outline" id="export-inventory">
+                    <i class="fa fa-download"></i> 导出库存
+                </button>
+                <button id="inventory-audit-btn" class="btn btn-outline">
+                    <i class="fa fa-sync"></i> 库存盘点
+                </button>
+                <button class="btn btn-primary" id="refresh-inventory">
+                    <i class="fa fa-refresh"></i> 刷新数据
+                </button>
+            </div>
+        </div>
+
+        <!-- 库存状态卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div class="card p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-gray-500 text-sm">总药品数</p>
+                        <h3 id="total-medicines" class="text-2xl font-bold mt-1">0 种</h3>
+                    </div>
+                    <div class="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
+                        <i class="fa fa-cubes"></i>
+                    </div>
+                </div>
+                <div class="flex items-center text-sm">
+                    <span class="text-secondary flex items-center" id="total-medicines-change">
+                        <i class="fa fa-arrow-up mr-1"></i> 0 种
+                    </span>
+                    <span class="text-gray-500 ml-2">较上月</span>
+                </div>
+            </div>
+
+            <div class="card p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-gray-500 text-sm">库存预警</p>
+                        <h3 id="lowstock-count" class="text-2xl font-bold mt-1">0 种</h3>
+                    </div>
+                    <div class="w-10 h-10 bg-accent/10 rounded-lg flex items-center justify-center text-accent">
+                        <i class="fa fa-exclamation-triangle"></i>
+                    </div>
+                </div>
+                <div class="flex items-center text-sm">
+                    <span class="text-accent flex items-center" id="lowstock-change">
+                        <i class="fa fa-arrow-up mr-1"></i> 0 种
+                    </span>
+                    <span class="text-gray-500 ml-2">较昨日</span>
+                </div>
+            </div>
+
+            <div class="card p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="text-gray-500 text-sm">近效期药品</p>
+                        <h3 id="near-expiry-count" class="text-2xl font-bold mt-1">0 种</h3>
+                    </div>
+                    <div class="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600">
+                        <i class="fa fa-calendar-times-o"></i>
+                    </div>
+                </div>
+                <div class="flex items-center text-sm">
+                    <span class="text-secondary flex items-center" id="expiry-change">
+                        <i class="fa fa-arrow-down mr-1"></i> 0 种
+                    </span>
+                    <span class="text-gray-500 ml-2">较上周</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 库存筛选 -->
+        <div class="card p-6 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">药品名称</label>
+                    <input type="text" class="input" id="medicine-name-filter" placeholder="请输入药品名称">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">药品分类</label>
+                    <select class="input" id="category-filter">
+                        <option value="">全部分类</option>
+                        <option value="otc">非处方药(OTC)</option>
+                        <option value="prescription">处方药</option>
+                        <option value="chinese">中药</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">库存状态</label>
+                    <select class="input" id="stock-status-filter">
+                        <option value="">全部状态</option>
+                        <option value="normal">正常</option>
+                        <option value="warning">预警</option>
+                        <option value="out">缺货</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">效期状态</label>
+                    <select class="input" id="expiry-status-filter">
+                        <option value="">全部状态</option>
+                        <option value="normal">正常效期</option>
+                        <option value="near">近效期(3个月内)</option>
+                        <option value="expired">已过期</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-4">
+                <button class="btn btn-outline" id="reset-filters">重置</button>
+                <button class="btn btn-primary" id="apply-filters">查询</button>
+            </div>
+        </div>
+
+        <!-- 库存列表 -->
+        <div class="card">
+            <div class="p-6 border-b border-gray-100">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <h3 class="font-bold">药品库存列表</h3>
+                    <div class="flex items-center gap-4">
+                        <div id="inventory-total-text" class="text-sm text-gray-500">共 0 种药品</div>
+                        <!-- 每页显示数量选择器 -->
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm text-gray-500">每页显示</span>
+                            <select id="page-size-select" class="input py-1 text-sm w-20">
+                                <option value="10">10</option>
+                                <option value="20">20</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 加载状态 -->
+            <div id="loading-inventory" class="p-8 text-center">
+                <i class="fa fa-spinner fa-spin text-primary text-xl mb-2"></i>
+                <p class="text-gray-500">正在加载库存数据...</p>
+            </div>
+
+            <!-- 空状态 -->
+            <div id="empty-inventory" class="p-8 text-center hidden">
+                <i class="fa fa-box text-gray-300 text-3xl mb-2"></i>
+                <p class="text-gray-500">暂无库存数据</p>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">药品信息</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">规格</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">批号</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">有效期至</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">库存数量</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最低库存</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">库存状态</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                    </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200" id="inventory-list-body">
+                    <!-- 动态内容 -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分页控件 -->
+            <div class="p-4 border-t border-gray-100">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div id="inventory-range-text" class="text-sm text-gray-500">显示 0-0 条，共 0 条</div>
+
+                    <div class="flex items-center gap-2">
+                        <!-- 快速跳转 -->
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm text-gray-500">跳至</span>
+                            <input type="number" id="page-jump-input" class="input py-1 text-sm w-16" min="1" placeholder="页">
+                            <button id="page-jump-btn" class="btn btn-outline py-1 text-sm">跳转</button>
+                        </div>
+
+                        <!-- 分页按钮 -->
+                        <div class="flex gap-1" id="inventory-pagination-controls">
+                            <!-- 分页控件将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- 引入通用前端脚本以提供 window.api 等工具 -->
+<script src="js/common.js"></script>
+<!-- 注入统一导航脚本 -->
+<script src="js/common-nav.js"></script>
+
+<script>
+    // 全局变量
+    let currentInventoryPage = 1;
+    let inventoryPageSize = 10; // 改为变量，允许用户修改
+    let totalInventoryItems = 0;
+    let allInventoryItems = [];
+    let filteredInventoryItems = [];
+    let totalPages = 0;
+
+    // 库存预警配置
+    const STOCK_ALERT_CONFIG = {
+        expiryWarningDays: 60, // 近效期预警天数
+        lowStockThreshold: 0.3, // 低库存阈值（库存量/安全库存）
+        criticalStockThreshold: 0.1 // 严重低库存阈值
+    };
+
+    // 初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('=== 库存页面初始化开始 ===');
+
+        initInventoryEvents();
+        loadInventoryData();
+
+        console.log('=== 库存页面初始化完成 ===');
+    });
+
+    // 库存相关事件初始化
+    function initInventoryEvents() {
+        // 刷新数据
+        const refreshBtn = document.getElementById('refresh-inventory');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', loadInventoryData);
+        }
+
+        // 导出库存
+        const exportBtn = document.getElementById('export-inventory');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', exportInventoryData);
+        }
+
+        // 筛选
+        const applyFiltersBtn = document.getElementById('apply-filters');
+        if (applyFiltersBtn) {
+            applyFiltersBtn.addEventListener('click', applyInventoryFilters);
+        }
+
+        // 重置筛选
+        const resetFiltersBtn = document.getElementById('reset-filters');
+        if (resetFiltersBtn) {
+            resetFiltersBtn.addEventListener('click', resetInventoryFilters);
+        }
+
+        // 库存盘点
+        const auditBtn = document.getElementById('inventory-audit-btn');
+        if (auditBtn) {
+            auditBtn.addEventListener('click', startInventoryAudit);
+        }
+
+        // 每页显示数量变化
+        const pageSizeSelect = document.getElementById('page-size-select');
+        if (pageSizeSelect) {
+            pageSizeSelect.addEventListener('change', function() {
+                inventoryPageSize = parseInt(this.value);
+                currentInventoryPage = 1; // 重置到第一页
+                applyInventoryFilters();
+            });
+        }
+
+        // 页面跳转
+        const pageJumpBtn = document.getElementById('page-jump-btn');
+        const pageJumpInput = document.getElementById('page-jump-input');
+        if (pageJumpBtn && pageJumpInput) {
+            pageJumpBtn.addEventListener('click', function() {
+                const targetPage = parseInt(pageJumpInput.value);
+                if (targetPage && targetPage >= 1 && targetPage <= totalPages) {
+                    changeInventoryPage(targetPage);
+                    pageJumpInput.value = ''; // 清空输入框
+                } else {
+                    showMessage('请输入有效的页码（1-' + totalPages + '）', 'error');
+                }
+            });
+
+            // 支持回车键跳转
+            pageJumpInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    pageJumpBtn.click();
+                }
+            });
+        }
+    }
+
+    // 获取库存状态
+    function getStockStatus(currentStock, safetyStock) {
+        if (safetyStock <= 0) safetyStock = 1; // 防止除零错误
+
+        const stockRatio = currentStock / safetyStock;
+
+        if (currentStock === 0) {
+            return { level: 'critical', text: '缺货', class: 'stock-critical' };
+        } else if (stockRatio <= STOCK_ALERT_CONFIG.criticalStockThreshold) {
+            return { level: 'critical', text: '严重不足', class: 'stock-critical' };
+        } else if (stockRatio <= STOCK_ALERT_CONFIG.lowStockThreshold) {
+            return { level: 'low', text: '库存不足', class: 'stock-low' };
+        } else if (stockRatio <= 0.8) {
+            return { level: 'medium', text: '库存一般', class: 'stock-medium' };
+        } else {
+            return { level: 'high', text: '库存充足', class: 'stock-high' };
+        }
+    }
+
+    // 获取效期状态
+    function getExpiryStatus(expiryDate) {
+        if (!expiryDate || expiryDate === '未知日期') return { text: '未知', class: 'stock-medium' };
+
+        try {
+            const today = new Date();
+            const expiry = new Date(expiryDate);
+            const daysDiff = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+
+            if (daysDiff < 0) {
+                return { text: '已过期', class: 'stock-critical' };
+            } else if (daysDiff <= STOCK_ALERT_CONFIG.expiryWarningDays) {
+                return { text: `近效期(${daysDiff}天)`, class: 'stock-low' };
+            } else {
+                return { text: '正常', class: 'stock-high' };
+            }
+        } catch (e) {
+            return { text: '日期格式错误', class: 'stock-medium' };
+        }
+    }
+
+    // 加载库存数据
+    async function loadInventoryData() {
+        console.log('开始加载库存数据...');
+        showInventoryLoading();
+
+        try {
+            // 首先尝试使用 medicineAPI
+            if (window.api && window.api.medicineAPI) {
+                console.log('使用 medicineAPI 获取库存数据');
+                const response = await window.api.medicineAPI.getAll();
+                console.log('medicineAPI 完整响应:', response);
+
+                // 处理不同的响应格式
+                let medicines = [];
+                if (response && response.data) {
+                    // 格式1: { code: 200, data: [...] }
+                    medicines = response.data;
+                } else if (Array.isArray(response)) {
+                    // 格式2: 直接返回数组
+                    medicines = response;
+                } else if (response && response.content) {
+                    // 格式3: Spring Data 分页格式 { content: [...] }
+                    medicines = response.content;
+                }
+
+                console.log('解析后的药品数据:', medicines);
+
+                if (medicines && medicines.length > 0) {
+                    // 转换药品数据为库存格式 - 根据实际API响应调整字段映射
+                    allInventoryItems = medicines.map(medicine => {
+                        console.log('处理单个药品:', medicine);
+
+                        // 根据实际API响应调整字段映射
+                        // 从日志看，药品名称在 tradeName 字段，ID在 medicineId 字段
+                        const item = {
+                            id: medicine.medicineId || medicine.id || '未知ID',
+                            // 药品名称映射：优先使用 tradeName，然后是 genericName
+                            name: medicine.tradeName || medicine.genericName || medicine.name || medicine.medicineName || '未知药品',
+                            manufacturer: medicine.manufacturer || '未知厂商',
+                            spec: medicine.specification || medicine.spec || '未知规格',
+                            // 批号和有效期可能需要从其他接口获取，这里使用默认值
+                            batchNumber: medicine.batchNumber || medicine.batch || '待录入',
+                            expiryDate: medicine.expiryDate || '待录入',
+                            // 库存数量 - 根据实际字段调整
+                            currentStock: parseInt(medicine.stockQuantity || medicine.stock || medicine.currentStock || medicine.quantity || 100), // 默认100
+                            // 安全库存 - 根据实际字段调整
+                            safetyStock: parseInt(medicine.minStock || medicine.safetyStock || medicine.minimumStock || 50), // 默认50
+                            unit: medicine.unit || '盒',
+                            // 分类映射
+                            category: getCategoryFromId(medicine.categoryId) || medicine.category || 'otc',
+                            imageUrl: medicine.imageUrl || medicine.image || null
+                        };
+
+                        console.log('转换后的库存项:', item);
+                        return item;
+                    });
+
+                    // 计算统计数据
+                    updateInventorySummary();
+                    currentInventoryPage = 1;
+                    applyInventoryFilters();
+                    return;
+                }
+            }
+
+            // 如果上面的方法失败，使用模拟数据
+            throw new Error('无法从API获取有效数据，使用模拟数据');
+
+        } catch (error) {
+            console.error('加载库存数据失败:', error);
+            // 使用模拟数据作为备选
+            console.log('使用模拟库存数据作为备选方案');
+            updateWithMockInventoryData();
+        }
+    }
+
+    // 根据分类ID获取分类名称
+    function getCategoryFromId(categoryId) {
+        const categoryMap = {
+            1: 'otc',
+            2: 'prescription',
+            3: 'chinese'
+        };
+        return categoryMap[categoryId] || null;
+    }
+
+    // 更新库存统计
+    function updateInventorySummary() {
+        if (!allInventoryItems || allInventoryItems.length === 0) {
+            updateInventorySummaryCards({
+                totalMedicines: 0,
+                totalMedicinesChange: 0,
+                lowStockCount: 0,
+                lowStockChange: 0,
+                nearExpiryCount: 0,
+                expiryChange: 0
+            });
+            return;
+        }
+
+        const totalMedicines = allInventoryItems.length;
+
+        // 计算低库存数量
+        const lowStockCount = allInventoryItems.filter(item => {
+            const stockStatus = getStockStatus(item.currentStock, item.safetyStock);
+            return stockStatus.level === 'low' || stockStatus.level === 'critical';
+        }).length;
+
+        // 计算近效期数量
+        const nearExpiryCount = allInventoryItems.filter(item => {
+            const expiryStatus = getExpiryStatus(item.expiryDate);
+            return expiryStatus.text.includes('近效期') || expiryStatus.text === '已过期';
+        }).length;
+
+        // 模拟变化数据
+        const mockStatsData = {
+            totalMedicines: totalMedicines,
+            totalMedicinesChange: Math.floor(Math.random() * 10),
+            lowStockCount: lowStockCount,
+            lowStockChange: Math.floor(Math.random() * 5),
+            nearExpiryCount: nearExpiryCount,
+            expiryChange: -Math.floor(Math.random() * 3)
+        };
+
+        updateInventorySummaryCards(mockStatsData);
+    }
+
+    // 更新库存统计卡片数据
+    function updateInventorySummaryCards(data) {
+        if (!data) return;
+
+        console.log('更新库存统计卡片数据:', data);
+
+        // 总药品数
+        const totalMedicinesEl = document.getElementById('total-medicines');
+        if (totalMedicinesEl) totalMedicinesEl.textContent = `${data.totalMedicines || 0} 种`;
+
+        // 总药品数变化
+        const totalMedicinesChangeEl = document.getElementById('total-medicines-change');
+        if (totalMedicinesChangeEl) {
+            const isPositive = (data.totalMedicinesChange || 0) >= 0;
+            totalMedicinesChangeEl.innerHTML = `
+                <i class="fa fa-arrow-${isPositive ? 'up' : 'down'} mr-1"></i>
+                ${Math.abs(data.totalMedicinesChange || 0)} 种
+            `;
+            totalMedicinesChangeEl.className = isPositive ?
+                'text-secondary flex items-center' :
+                'text-accent flex items-center';
+        }
+
+        // 库存预警数
+        const lowStockCountEl = document.getElementById('lowstock-count');
+        if (lowStockCountEl) lowStockCountEl.textContent = `${data.lowStockCount || 0} 种`;
+
+        // 库存预警变化
+        const lowStockChangeEl = document.getElementById('lowstock-change');
+        if (lowStockChangeEl) {
+            const isPositive = (data.lowStockChange || 0) >= 0;
+            lowStockChangeEl.innerHTML = `
+                <i class="fa fa-arrow-${isPositive ? 'up' : 'down'} mr-1"></i>
+                ${Math.abs(data.lowStockChange || 0)} 种
+            `;
+            lowStockChangeEl.className = isPositive ?
+                'text-accent flex items-center' :
+                'text-secondary flex items-center';
+        }
+
+        // 近效期药品数
+        const nearExpiryCountEl = document.getElementById('near-expiry-count');
+        if (nearExpiryCountEl) nearExpiryCountEl.textContent = `${data.nearExpiryCount || 0} 种`;
+
+        // 近效期变化
+        const expiryChangeEl = document.getElementById('expiry-change');
+        if (expiryChangeEl) {
+            const isPositive = (data.expiryChange || 0) >= 0;
+            expiryChangeEl.innerHTML = `
+                <i class="fa fa-arrow-${isPositive ? 'up' : 'down'} mr-1"></i>
+                ${Math.abs(data.expiryChange || 0)} 种
+            `;
+            expiryChangeEl.className = isPositive ?
+                'text-accent flex items-center' :
+                'text-secondary flex items-center';
+        }
+    }
+
+    // 应用库存筛选
+    function applyInventoryFilters() {
+        console.log('=== 应用库存筛选条件 ===');
+
+        if (allInventoryItems.length === 0) {
+            console.log('没有库存数据可筛选');
+            showInventoryEmpty();
+            return;
+        }
+
+        const filters = getInventoryFilters();
+        console.log('库存筛选条件:', filters);
+
+        filteredInventoryItems = [...allInventoryItems];
+
+        // 药品名称筛选
+        if (filters.medicineName) {
+            const searchTerm = filters.medicineName.toLowerCase();
+            filteredInventoryItems = filteredInventoryItems.filter(item => {
+                const name = item.name || '';
+                return name.toLowerCase().includes(searchTerm);
+            });
+        }
+
+        // 分类筛选
+        if (filters.category) {
+            filteredInventoryItems = filteredInventoryItems.filter(item => {
+                const category = item.category || '';
+                return category === filters.category;
+            });
+        }
+
+        // 库存状态筛选
+        if (filters.stockStatus) {
+            filteredInventoryItems = filteredInventoryItems.filter(item => {
+                const currentStock = item.currentStock || 0;
+                const safetyStock = item.safetyStock || 1;
+                const stockStatus = getStockStatus(currentStock, safetyStock);
+
+                if (filters.stockStatus === 'normal') {
+                    return stockStatus.level === 'high' || stockStatus.level === 'medium';
+                } else if (filters.stockStatus === 'warning') {
+                    return stockStatus.level === 'low';
+                } else if (filters.stockStatus === 'out') {
+                    return stockStatus.level === 'critical';
+                }
+                return true;
+            });
+        }
+
+        // 效期状态筛选
+        if (filters.expiryStatus) {
+            filteredInventoryItems = filteredInventoryItems.filter(item => {
+                const expiryStatus = getExpiryStatus(item.expiryDate);
+
+                if (filters.expiryStatus === 'normal') {
+                    return expiryStatus.text === '正常';
+                } else if (filters.expiryStatus === 'near') {
+                    return expiryStatus.text.includes('近效期');
+                } else if (filters.expiryStatus === 'expired') {
+                    return expiryStatus.text === '已过期';
+                }
+                return true;
+            });
+        }
+
+        console.log('筛选后库存数量:', filteredInventoryItems.length);
+        displayFilteredInventoryItems();
+    }
+
+    // 获取库存筛选条件
+    function getInventoryFilters() {
+        return {
+            medicineName: document.getElementById('medicine-name-filter').value,
+            category: document.getElementById('category-filter').value,
+            stockStatus: document.getElementById('stock-status-filter').value,
+            expiryStatus: document.getElementById('expiry-status-filter').value
+        };
+    }
+
+    // 显示筛选后的库存项目
+    function displayFilteredInventoryItems() {
+        const startIndex = (currentInventoryPage - 1) * inventoryPageSize;
+        const endIndex = startIndex + inventoryPageSize;
+        const pagedItems = filteredInventoryItems.slice(startIndex, endIndex);
+
+        console.log('分页后库存项目:', pagedItems);
+        displayInventoryItems(pagedItems);
+        updateInventoryPagination(filteredInventoryItems.length);
+    }
+
+    // 显示库存加载状态
+    function showInventoryLoading() {
+        document.getElementById('inventory-list-body').classList.add('hidden');
+        document.getElementById('loading-inventory').classList.remove('hidden');
+        document.getElementById('empty-inventory').classList.add('hidden');
+    }
+
+    // 显示库存空状态
+    function showInventoryEmpty() {
+        document.getElementById('inventory-list-body').classList.add('hidden');
+        document.getElementById('loading-inventory').classList.add('hidden');
+        document.getElementById('empty-inventory').classList.remove('hidden');
+        document.getElementById('inventory-total-text').textContent = '共 0 种药品';
+        document.getElementById('inventory-range-text').textContent = '显示 0-0 条，共 0 条';
+        document.getElementById('inventory-pagination-controls').innerHTML = '';
+    }
+
+    // 显示库存数据
+    function displayInventoryItems(items) {
+        const tbody = document.getElementById('inventory-list-body');
+
+        console.log('要显示的库存数据:', items);
+
+        if (!items || items.length === 0) {
+            console.log('没有库存数据，显示空状态');
+            showInventoryEmpty();
+            return;
+        }
+
+        document.getElementById('loading-inventory').classList.add('hidden');
+        document.getElementById('empty-inventory').classList.add('hidden');
+        tbody.classList.remove('hidden');
+
+        const html = items.map(item => {
+            console.log('处理库存项目:', item);
+
+            // 计算库存状态
+            const stockStatus = getStockStatus(item.currentStock, item.safetyStock);
+
+            // 计算效期状态
+            const expiryStatus = getExpiryStatus(item.expiryDate);
+
+            return `
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <img src="${item.imageUrl || 'https://picsum.photos/40/40?random=' + Math.floor(Math.random() * 100)}"
+                                 alt="药品图片" class="w-10 h-10 mr-3 rounded">
+                            <div>
+                                <div class="text-sm font-medium">${item.name}</div>
+                                <div class="text-xs text-gray-500">${item.manufacturer}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${item.spec}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${item.batchNumber}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${item.expiryDate}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${item.currentStock} ${item.unit}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${item.safetyStock} ${item.unit}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="stock-indicator ${stockStatus.class}">
+                            ${stockStatus.text}
+                        </span>
+                        ${expiryStatus.text !== '正常' ? `
+                        <br>
+                        <span class="stock-indicator ${expiryStatus.class}">
+                            ${expiryStatus.text}
+                        </span>
+                        ` : ''}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <button class="text-primary hover:underline mr-3" onclick="viewInventoryDetail('${item.id}')">详情</button>
+                        <button class="text-secondary hover:underline" onclick="replenishInventory('${item.id}')">补货</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        tbody.innerHTML = html;
+    }
+
+    // 更新库存分页信息
+    function updateInventoryPagination(total) {
+        totalInventoryItems = total;
+        totalPages = Math.ceil(total / inventoryPageSize);
+
+        const startItem = ((currentInventoryPage - 1) * inventoryPageSize) + 1;
+        const endItem = Math.min(currentInventoryPage * inventoryPageSize, total);
+
+        document.getElementById('inventory-total-text').textContent = `共 ${total} 种药品`;
+        document.getElementById('inventory-range-text').textContent =
+            `显示 ${startItem}-${endItem} 条，共 ${total} 条`;
+
+        updateInventoryPaginationControls();
+    }
+
+    // 更新库存分页控件
+    function updateInventoryPaginationControls() {
+        const container = document.getElementById('inventory-pagination-controls');
+
+        if (totalPages <= 1) {
+            container.innerHTML = '';
+            return;
+        }
+
+        let html = '';
+
+        // 上一页按钮
+        if (currentInventoryPage > 1) {
+            html += `
+                <button class="pagination-btn" onclick="changeInventoryPage(${currentInventoryPage - 1})">
+                    <i class="fa fa-chevron-left text-xs"></i>
+                </button>
+            `;
+        } else {
+            html += `
+                <button class="pagination-btn disabled" disabled>
+                    <i class="fa fa-chevron-left text-xs"></i>
+                </button>
+            `;
+        }
+
+        // 页码按钮 - 显示最多7个页码
+        const startPage = Math.max(1, currentInventoryPage - 3);
+        const endPage = Math.min(totalPages, startPage + 6);
+
+        // 显示第一页和省略号（如果需要）
+        if (startPage > 1) {
+            html += `
+                <button class="pagination-btn" onclick="changeInventoryPage(1)">1</button>
+            `;
+            if (startPage > 2) {
+                html += `<span class="px-2">...</span>`;
+            }
+        }
+
+        // 显示页码范围
+        for (let i = startPage; i <= endPage; i++) {
+            if (i === currentInventoryPage) {
+                html += `
+                    <button class="pagination-btn active">${i}</button>
+                `;
+            } else {
+                html += `
+                    <button class="pagination-btn" onclick="changeInventoryPage(${i})">${i}</button>
+                `;
+            }
+        }
+
+        // 显示最后一页和省略号（如果需要）
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                html += `<span class="px-2">...</span>`;
+            }
+            html += `
+                <button class="pagination-btn" onclick="changeInventoryPage(${totalPages})">${totalPages}</button>
+            `;
+        }
+
+        // 下一页按钮
+        if (currentInventoryPage < totalPages) {
+            html += `
+                <button class="pagination-btn" onclick="changeInventoryPage(${currentInventoryPage + 1})">
+                    <i class="fa fa-chevron-right text-xs"></i>
+                </button>
+            `;
+        } else {
+            html += `
+                <button class="pagination-btn disabled" disabled>
+                    <i class="fa fa-chevron-right text-xs"></i>
+                </button>
+            `;
+        }
+
+        container.innerHTML = html;
+    }
+
+    // 切换库存页面
+    function changeInventoryPage(page) {
+        console.log('切换库存页面到:', page);
+
+        if (page < 1 || page > totalPages) {
+            console.log('无效的页码:', page);
+            return;
+        }
+
+        currentInventoryPage = page;
+        displayFilteredInventoryItems();
+
+        // 滚动到表格顶部
+        const table = document.querySelector('.card table');
+        if (table) {
+            table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    // 重置库存筛选
+    function resetInventoryFilters() {
+        document.getElementById('medicine-name-filter').value = '';
+        document.getElementById('category-filter').value = '';
+        document.getElementById('stock-status-filter').value = '';
+        document.getElementById('expiry-status-filter').value = '';
+        currentInventoryPage = 1;
+        applyInventoryFilters();
+    }
+
+    // 查看库存详情
+    function viewInventoryDetail(itemId) {
+        // 这里可以跳转到详情页面或显示模态框
+        console.log('查看库存详情:', itemId);
+        if (window.api && window.api.showMessage) {
+            window.api.showMessage('查看库存详情功能开发中', 'info');
+        } else {
+            alert('查看库存详情功能开发中');
+        }
+    }
+
+    // 补货操作
+    function replenishInventory(itemId) {
+        // 这里可以显示补货模态框或跳转到补货页面
+        console.log('补货操作:', itemId);
+        if (window.api && window.api.showMessage) {
+            window.api.showMessage('补货功能开发中', 'info');
+        } else {
+            alert('补货功能开发中');
+        }
+    }
+
+    // 库存盘点
+    function startInventoryAudit() {
+        console.log('开始库存盘点');
+        if (window.api && window.api.showMessage) {
+            window.api.showMessage('库存盘点功能开发中', 'info');
+        } else {
+            alert('库存盘点功能开发中');
+        }
+    }
+
+    // 导出库存数据
+async function exportInventoryData() {
+    try {
+        const button = document.getElementById('export-inventory');
+        if (button) {
+            button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 导出中...';
+            button.disabled = true;
+        }
+
+        // 创建CSV内容 - 修复编码问题
+        let csvContent = "\uFEFF"; // 添加BOM头，解决Excel中文乱码问题
+
+        // 表头
+        csvContent += "药品名称,规格,批号,有效期至,库存数量,最低库存,库存状态,效期状态\n";
+
+        // 数据行
+        filteredInventoryItems.forEach(item => {
+            const stockStatus = getStockStatus(item.currentStock, item.safetyStock);
+            const expiryStatus = getExpiryStatus(item.expiryDate);
+
+            // 转义CSV字段，处理逗号、引号等特殊字符
+            const escapeCSV = (field) => {
+                if (field === null || field === undefined) return '""';
+                const stringField = String(field);
+                // 如果包含逗号、引号、换行符，需要用引号包围并转义内部引号
+                if (stringField.includes(',') || stringField.includes('"') || stringField.includes('\n')) {
+                    return '"' + stringField.replace(/"/g, '""') + '"';
+                }
+                return stringField;
+            };
+
+            csvContent += [
+                escapeCSV(item.name),
+                escapeCSV(item.spec),
+                escapeCSV(item.batchNumber),
+                escapeCSV(item.expiryDate),
+                item.currentStock,
+                item.safetyStock,
+                escapeCSV(stockStatus.text),
+                escapeCSV(expiryStatus.text)
+            ].join(',') + '\n';
+        });
+
+        // 创建下载链接 - 使用正确的MIME类型和编码
+        const blob = new Blob([csvContent], {
+            type: 'text/csv;charset=utf-8;'
+        });
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+
+        // 生成文件名，包含日期时间
+        const now = new Date();
+        const dateStr = now.toISOString().slice(0,10).replace(/-/g, '');
+        const timeStr = now.toTimeString().slice(0,8).replace(/:/g, '');
+        link.download = `药房库存报表_${dateStr}_${timeStr}.csv`;
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // 释放URL对象
+        setTimeout(() => {
+            URL.revokeObjectURL(url);
+        }, 100);
+
+        if (window.api && window.api.showMessage) {
+            window.api.showMessage('库存报表导出成功！', 'success');
+        } else {
+            alert('库存报表导出成功！');
+        }
+    } catch (error) {
+        console.error('导出失败:', error);
+        if (window.api && window.api.showMessage) {
+            window.api.showMessage('导出失败，请重试: ' + error.message, 'error');
+        } else {
+            alert('导出失败，请重试: ' + error.message);
+        }
+    } finally {
+        const button = document.getElementById('export-inventory');
+        if (button) {
+            button.innerHTML = '<i class="fa fa-download"></i> 导出库存';
+            button.disabled = false;
+        }
+    }
+}
+
+    // 使用模拟库存数据
+    function updateWithMockInventoryData() {
+        console.log('使用模拟库存数据更新界面');
+
+        // 更新库存列表数据 - 生成更多模拟数据
+        const mockInventoryItems = generateMockInventoryData(35); // 生成35个药品
+
+        allInventoryItems = mockInventoryItems;
+        updateInventorySummary();
+        currentInventoryPage = 1;
+        applyInventoryFilters();
+    }
+
+    // 生成模拟库存数据
+    function generateMockInventoryData(count) {
+        const manufacturers = [
+            "华北制药", "同仁堂", "白云山", "康恩贝", "哈药集团",
+            "999药业", "石药集团", "北京同仁堂", "吉林吴太感康药业有限公司",
+            "石家庄以岭药业股份有限公司", "华润三九医药股份有限公司"
+        ];
+
+        const categories = ["prescription", "otc", "chinese"];
+        const units = ["盒", "瓶", "包", "支"];
+
+        const items = [];
+
+        for (let i = 1; i <= count; i++) {
+            const category = categories[Math.floor(Math.random() * categories.length)];
+            const manufacturer = manufacturers[Math.floor(Math.random() * manufacturers.length)];
+            const unit = units[Math.floor(Math.random() * units.length)];
+
+            // 生成随机库存数量
+            const currentStock = Math.floor(Math.random() * 100);
+            const safetyStock = Math.floor(Math.random() * 30) + 10;
+
+            // 生成随机有效期
+            const today = new Date();
+            const expiryDate = new Date(today);
+            expiryDate.setFullYear(today.getFullYear() + Math.floor(Math.random() * 3) + 1);
+            expiryDate.setMonth(Math.floor(Math.random() * 12));
+            expiryDate.setDate(Math.floor(Math.random() * 28) + 1);
+
+            items.push({
+                id: `MOCK_${i}`,
+                name: `模拟药品 ${i}`,
+                manufacturer: manufacturer,
+                spec: `${Math.floor(Math.random() * 500) + 50}mg*${Math.floor(Math.random() * 50) + 10}${unit}`,
+                batchNumber: `BH${20230000 + i}`,
+                expiryDate: expiryDate.toISOString().split('T')[0],
+                currentStock: currentStock,
+                safetyStock: safetyStock,
+                unit: unit,
+                category: category
+            });
+        }
+
+        return items;
+    }
+
+    // 显示消息
+    function showMessage(message, type = 'success') {
+        if (window.api && window.api.showMessage) {
+            window.api.showMessage(message, type);
+        } else {
+            // 备用消息显示
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50 ${
+                type === 'success' ? 'bg-green-500 text-white' :
+                type === 'error' ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'
+            }`;
+            messageDiv.innerHTML = `
+                <i class="fa ${type === 'success' ? 'fa-check-circle' :
+                type === 'error' ? 'fa-exclamation-triangle' : 'fa-info-circle'} mr-2"></i>
+                ${message}
+            `;
+            document.body.appendChild(messageDiv);
+            setTimeout(() => {
+                if (document.body.contains(messageDiv)) {
+                    document.body.removeChild(messageDiv);
+                }
+            }, 3000);
+        }
+    }
+</script>
+</body>
+</html>
