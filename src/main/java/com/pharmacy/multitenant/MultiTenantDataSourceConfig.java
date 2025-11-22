@@ -40,23 +40,39 @@ public class MultiTenantDataSourceConfig implements InitializingBean {
     @Primary
     public DataSource routingDataSource(){
         StoreRoutingDataSource routing = new StoreRoutingDataSource();
-        // 默认数据源
+        // 默认数据源（基础租户）
         DataSource defaultDs = buildHikari(defaultUrl, defaultUser, defaultPwd, "default");
         dataSourceMap.put("default", defaultDs);
-        // 解析 tenants 列表
+
+        // 解析租户列表（spring.tenants[n].id 结构）
         List<Map<String,Object>> tenants = loadTenantsFromEnv();
-        for(Map<String,Object> t : tenants){
-            String id = Objects.toString(t.get("id"), null);
-            String url = Objects.toString(t.get("url"), null);
-            String user = Objects.toString(t.get("username"), null);
-            String pwd = Objects.toString(t.get("password"), null);
-            if(id==null || url==null) continue;
-            dataSourceMap.put(id, buildHikari(url,user,pwd,id));
+        if(tenants.isEmpty()){
+            System.out.println("[MultiTenant] 未发现 spring.tenants 配置，系统仅使用 default 数据源");
+        } else {
+            for(Map<String,Object> t : tenants){
+                String id = Objects.toString(t.get("id"), null);
+                String url = Objects.toString(t.get("url"), null);
+                String user = Objects.toString(t.get("username"), defaultUser);
+                String pwd = Objects.toString(t.get("password"), defaultPwd);
+                if(id==null || url==null){
+                    System.err.println("[MultiTenant] 跳过无效租户配置: " + t);
+                    continue;
+                }
+                if(dataSourceMap.containsKey(id)){
+                    System.out.println("[MultiTenant] 租户重复忽略: " + id);
+                    continue;
+                }
+                DataSource tenantDs = buildHikari(url,user,pwd,id);
+                dataSourceMap.put(id, tenantDs);
+            }
         }
         routing.setDefaultTargetDataSource(defaultDs);
-        routing.setTargetDataSources(new HashMap<>(dataSourceMap));
+        // 使用显式 Map<Object,Object> 传入，避免泛型不匹配
+        Map<Object,Object> targetMap = new HashMap<>();
+        targetMap.putAll(dataSourceMap);
+        routing.setTargetDataSources(targetMap);
         routing.afterPropertiesSet();
-        System.out.println("[MultiTenant] Data sources initialized: " + dataSourceMap.keySet());
+        System.out.println("[MultiTenant] DataSources 初始化完成: " + dataSourceMap.keySet());
         return routing;
     }
 
@@ -90,7 +106,27 @@ public class MultiTenantDataSourceConfig implements InitializingBean {
         cfg.addDataSourceProperty("cachePrepStmts", "true");
         cfg.addDataSourceProperty("prepStmtCacheSize", "250");
         cfg.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
-        return new HikariDataSource(cfg);
+
+        int maxRetry = 10; // 调高重试次数，容忍 MySQL 初始化较慢情况
+        long backoffMs = 3000L; // 每次重试间隔加大
+        Exception last = null;
+        for(int attempt=1; attempt<=maxRetry; attempt++){
+            try {
+                System.out.println("[MultiTenant] 尝试建立连接("+poolName+") 第 " + attempt + " 次 -> " + url);
+                HikariDataSource ds = new HikariDataSource(cfg);
+                try(var c = ds.getConnection()){ /* 连接测试 */ }
+                System.out.println("[MultiTenant] 租户 " + poolName + " 数据源连接成功");
+                return ds;
+            } catch (Exception ex){
+                last = ex;
+                System.err.println("[MultiTenant] 租户 " + poolName + " 连接失败("+attempt+"/"+maxRetry+"): " + ex.getMessage());
+                if(attempt < maxRetry){
+                    try { Thread.sleep(backoffMs); } catch (InterruptedException ignored) {}
+                }
+            }
+        }
+        System.err.println("[MultiTenant] 多次重试仍失败, 放弃租户 " + poolName + " -> " + url);
+        throw new RuntimeException("[MultiTenant] 数据源初始化多次重试仍失败: " + poolName + " -> " + url, last);
     }
 
     @Bean
@@ -121,7 +157,9 @@ public class MultiTenantDataSourceConfig implements InitializingBean {
         DataSource ds = buildHikari(url,user,pwd,id);
         dataSourceMap.put(id, ds);
         StoreRoutingDataSource routing = (StoreRoutingDataSource) routingDataSource();
-        routing.setTargetDataSources(new HashMap<>(dataSourceMap));
+        Map<Object,Object> targetMap = new HashMap<>();
+        targetMap.putAll(dataSourceMap);
+        routing.setTargetDataSources(targetMap);
         routing.afterPropertiesSet();
     }
 
@@ -134,7 +172,7 @@ public class MultiTenantDataSourceConfig implements InitializingBean {
 
     @Override
     public void afterPropertiesSet() {
-        // 预留：启动后日志输出当前已注册数据源
-        System.out.println("[MultiTenant] Registered data sources: " + dataSourceMap.keySet());
+        // 初始化阶段此处不做空列表误导日志，routingDataSource 创建后会输出最终列表
+        System.out.println("[MultiTenant] 配置类加载完成");
     }
 }

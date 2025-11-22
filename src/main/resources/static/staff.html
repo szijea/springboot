@@ -1,400 +1,168 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+    <script>(function(){if(!window.tailwind){window.tailwind={config:{}};} if(!window.tailwind.config){window.tailwind.config={};}})();</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>智慧药房收银系统 - 员工管理</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 使用本地预编译的 Tailwind 样式 -->
+    <link rel="stylesheet" href="css/tailwind.css" />
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/theme-enhanced.css" />
+    <link rel="stylesheet" href="css/theme-premium.css" />
     <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
 
-    <!-- 配置Tailwind -->
-    <script>
-        tailwind.config = {
-          theme: {
-            extend: {
-              colors: {
-                primary: '#165DFF',
-                secondary: '#36B37E',
-                accent: '#FF5630',
-                warning: '#FFAB00',
-              },
-              fontFamily: {
-                inter: ['Inter', 'system-ui', 'sans-serif'],
-              },
-            },
-          }
-        }
-    </script>
 
-    <style type="text/tailwindcss">
-        @layer utilities {
-          .sidebar-item {
-            @apply flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 cursor-pointer;
-          }
-          .sidebar-item.active {
-            @apply bg-primary text-white;
-          }
-          .sidebar-item:not(.active):hover {
-            @apply bg-gray-100;
-          }
-          .card {
-            @apply bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden transition-all duration-300 hover:shadow-md;
-          }
-          .btn {
-            @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2;
-          }
-          .btn-primary {
-            @apply bg-primary text-white hover:bg-primary/90;
-          }
-          .btn-outline {
-            @apply border border-gray-300 hover:bg-gray-50;
-          }
-          .btn-danger {
-            @apply bg-accent text-white hover:bg-accent/90;
-          }
-          .input {
-            @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all;
-          }
-          .badge {
-            @apply px-2 py-1 rounded-full text-xs font-medium;
-          }
-          .modal-backdrop {
-            @apply fixed inset-0 bg-black/50 z-40 hidden;
-          }
-          .modal {
-            @apply fixed inset-0 z-50 flex items-center justify-center hidden;
-          }
-          .modal-content {
-            @apply bg-white rounded-xl w-full max-w-md mx-4 shadow-lg transform transition-all;
-          }
-          .temperature-normal {
-            @apply bg-green-100 text-green-800;
-          }
-          .temperature-high {
-            @apply bg-warning/20 text-warning;
-          }
-        }
+    <style>
+        :root { --color-primary:#165DFF; --color-secondary:#36B37E; --color-accent:#FF5630; --color-warning:#FFAB00; }
+        body { font-family: Inter, system-ui, sans-serif; }
+        .sidebar-item { display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;border-radius:.5rem;transition:.2s;cursor:pointer; }
+        .sidebar-item.active { background:var(--color-primary);color:#fff; }
+        .sidebar-item:not(.active):hover { background:#f3f4f6; }
+        .card { background:#fff;border:1px solid #f1f1f1;border-radius:.75rem;box-shadow:0 1px 2px rgba(0,0,0,.05);overflow:hidden;transition:.3s; }
+        .card:hover { box-shadow:0 4px 12px rgba(0,0,0,.08); }
+        .btn { display:inline-flex;align-items:center;gap:.5rem;padding:.5rem 1rem;border-radius:.5rem;font-weight:500;transition:.2s;line-height:1.25; }
+        .btn-primary { background:var(--color-primary);color:#fff; }
+        .btn-primary:hover { background:#0f4bcc; }
+        .btn-outline { background:#fff;color:#374151;border:1px solid #d1d5db; }
+        .btn-outline:hover { background:#f9fafb; }
+        .btn-danger { background:var(--color-accent);color:#fff; }
+        .btn-danger:hover { background:#e13f1d; }
+        .input { width:100%;padding:.5rem .75rem;border:1px solid #d1d5db;border-radius:.5rem;outline:none;transition:.15s; }
+        .input:focus { border-color:var(--color-primary);box-shadow:0 0 0 3px rgba(22,93,255,.15); }
+        .badge { display:inline-flex;align-items:center;padding:.25rem .5rem;border-radius:999px;font-size:.75rem;font-weight:500; }
+        .temperature-normal { background:#dcfce7;color:#166534; }
+        .temperature-high { background:rgba(255,171,0,.15);color:#b45309; }
+        /* 统一主内容滚动样式 */
+        .main-content{flex:1 1 auto;padding:1.5rem;min-height:calc(100vh - 64px);overflow-y:auto;scrollbar-width:thin;}
+        .main-content::-webkit-scrollbar{width:8px}
+        .main-content::-webkit-scrollbar-track{background:#f5f5f5;border-radius:4px}
+        .main-content::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:4px}
+        .main-content::-webkit-scrollbar-thumb:hover{background:#9ca3af}
+        /* 页面特有附加样式：modal 相关保留 */
+        .modal-backdrop { position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:40;display:none; }
+        .modal { position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center; }
+        .modal-content { background:#fff;border-radius:.75rem;max-width:28rem;width:100%;margin:0 1rem;box-shadow:0 10px 25px -5px rgba(0,0,0,.1); }
+        /* 页面特有样式：员工管理 */
+        .layout-two-column { display: flex; gap: 1.5rem; }
+        .layout-sidebar { flex: 0 0 250px; }
+        .layout-main { flex: 1; }
     </style>
 </head>
-
-<body class="font-inter bg-gray-50 text-gray-800 min-h-screen flex">
+<body class="font-inter bg-gray-50 text-gray-800 min-h-screen flex enhanced-ui theme-modern theme-premium page-enter">
+<a href="#main-content" class="skip-link">跳到主内容</a>
+<div class="scroll-progress" id="scroll-progress"></div>
 <div id="common-nav" data-active="staff"></div>
-<main class="flex-1 flex flex-col pt-16" id="staff-main" style="display:none"><!-- 隐藏直到权限通过 -->
-
-    <!-- 内容区域 -->
-    <div class="flex-1 overflow-y-auto p-6 bg-gray-50">
-        <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-            <div>
-                <h2 class="text-[clamp(1.25rem,2vw,1.75rem)] font-bold">员工管理</h2>
-                <p class="text-gray-500">管理员工信息、状态及体温记录</p>
-            </div>
-            <div class="flex gap-3">
-                <button class="btn btn-outline" id="refresh-staff">
-                    <i class="fa fa-refresh"></i> 刷新
-                </button>
-                <button class="btn btn-primary" id="add-staff">
-                    <i class="fa fa-plus"></i> 新增员工
-                </button>
-            </div>
-        </div>
-
-        <!-- 店铺筛选 + 搜索区域 -->
-        <div class="mb-4 flex flex-col sm:flex-row gap-4">
-            <div class="w-full sm:w-1/4 hidden">
-                <select id="shop-select" class="input">
-                    <option value="">全部店铺</option>
-                </select>
-            </div>
-            <div class="w-full sm:w-3/4">
-                <input type="text" placeholder="搜索员工姓名、职位..."
-                       class="input w-full" id="staff-search">
-            </div>
-        </div>
-
-        <!-- 员工列表 -->
-        <div class="card">
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">所属店铺</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">员工ID</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">职位</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">联系电话</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">入职日期</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最新体温</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
-                    </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200" id="staff-table">
-                    <!-- 员工数据通过JS动态生成 -->
-                    </tbody>
-                </table>
-            </div>
-            <div class="p-4 border-t border-gray-100 flex items-center justify-between">
-                <div class="text-sm text-gray-500">显示 1 至 10 条，共 24 条记录</div>
-                <div class="flex gap-2">
-                    <button class="btn btn-outline px-3 py-1 text-sm" disabled>上一页</button>
-                    <button class="btn btn-outline px-3 py-1 text-sm bg-primary text-white">1</button>
-                    <button class="btn btn-outline px-3 py-1 text-sm">2</button>
-                    <button class="btn btn-outline px-3 py-1 text-sm">3</button>
-                    <button class="btn btn-outline px-3 py-1 text-sm">下一页</button>
-                </div>
-            </div>
-        </div>
+<div id="notification-panel" class="hidden absolute top-20 right-6 bg-white shadow-lg rounded-lg p-4 w-64 text-sm">
+  <div class="font-medium mb-2">通知面板</div>
+  <p class="text-gray-500">暂无通知</p>
+</div>
+<main class="flex-1 flex flex-col pt-16">
+  <div class="main-content" id="main-content"><div class="container-xl section-gap">
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4 action-bar">
+      <div>
+        <h2 class="page-title font-bold page-title-decor">员工管理</h2>
+        <p class="text-gray-500">人员档案与权限配置</p>
+      </div>
     </div>
+
+    <div class="layout-two-column">
+      <aside class="layout-sidebar">
+        <div class="card p-4 mb-4">
+          <h3 class="font-bold text-sm mb-3">搜索筛选</h3>
+          <div class="space-y-3 text-xs">
+            <label for="staff-search" class="block text-gray-700">员工搜索</label>
+            <input type="text" placeholder="搜索员工姓名、职位..." class="input text-sm" id="staff-search" name="staffSearch" aria-label="员工搜索">
+            <label for="shop-select" class="block text-gray-700">所属店铺</label>
+            <select id="shop-select" class="input text-sm" name="shopSelect" aria-label="所属店铺筛选">
+              <option value="">全部店铺</option>
+            </select>
+            <div class="flex justify-end gap-2 pt-2">
+              <button class="btn btn-outline text-xs" id="refresh-staff"><i class="fa fa-refresh"></i> 刷新</button>
+              <button class="btn btn-primary text-xs" id="add-staff"><i class="fa fa-plus"></i> 新增员工</button>
+            </div>
+          </div>
+        </div>
+      </aside>
+      <div class="layout-main space-y-6">
+        <div class="card">
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">所属店铺</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">员工ID</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">职位</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">联系电话</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">入职日期</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最新体温</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+              </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200" id="staff-table"></tbody>
+            </table>
+          </div>
+          <div class="p-4 border-t border-gray-100 flex items-center justify-between large-click" id="staff-pagination">
+            <div class="text-sm text-gray-500" id="staff-summary">暂无数据</div>
+            <div class="flex gap-2" id="staff-page-buttons"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div></div>
 </main>
+<script>(function(){var nav=document.getElementById('common-nav');if(nav&&!nav.classList.contains('nav-glass'))nav.classList.add('nav-glass');})();</script>
+<script>
+// 防止缺失函数报错
+if(typeof initKeyInteractions!=='function'){ window.initKeyInteractions=function(){ console.log('initKeyInteractions 占位'); }; }
+</script>
 
-<script src="js/common-nav.js"></script>
-
-<!-- 员工模态框 -->
 <div class="modal-backdrop" id="staff-modal-backdrop"></div>
 <div class="modal" id="staff-modal">
     <div class="modal-content p-6">
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-lg font-bold" id="modal-title">新增员工</h3>
-            <button class="text-gray-400 hover:text-gray-600" id="close-staff-modal">
-                <i class="fa fa-times"></i>
-            </button>
+            <button class="text-gray-400 hover:text-gray-600" id="close-staff-modal" aria-label="关闭员工编辑窗口"><span class="sr-only">关闭</span><i class="fa fa-times" aria-hidden="true"></i></button>
         </div>
-        <form id="staff-form">
-            <input type="hidden" id="staff-id">
-            <div class="space-y-4">
-                <div class="hidden">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">所属店铺</label>
-                    <select id="staff-shop" class="input">
-                        <option value="1">本店</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">姓名 <span class="text-red-500">*</span></label>
-                    <input type="text" id="staff-name" class="input" placeholder="请输入员工姓名" required>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">职位 <span class="text-red-500">*</span></label>
-                    <select id="staff-position" class="input" required>
-                        <option value="">请选择职位</option>
-                        <option value="manager">店长</option>
-                        <option value="pharmacist">药师</option>
-                        <option value="cashier">收银员</option>
-                        <option value="stockman">库管员</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">联系电话 <span class="text-red-500">*</span></label>
-                    <input type="tel" id="staff-phone" class="input" placeholder="请输入联系电话" required>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">入职日期 <span class="text-red-500">*</span></label>
-                    <input type="date" id="staff-hireDate" class="input" required>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">今日体温 (°C) <span class="text-red-500">*</span></label>
-                    <input type="number" id="staff-temperature" class="input"
-                           placeholder="请输入今日体温" step="0.1" min="35" max="42" required>
-                </div>
-                <div id="edit-status-container" class="hidden">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">状态</label>
-                    <select id="staff-status" class="input">
-                        <option value="true">在职</option>
-                        <option value="false">离职</option>
-                    </select>
-                </div>
+        <form id="staff-form" class="space-y-4">
+            <div>
+                <label for="staff-name" class="block text-sm font-medium text-gray-700 mb-1">姓名 *</label>
+                <input type="text" class="input" id="staff-name" required name="staffName" aria-label="员工姓名">
             </div>
-            <div class="mt-6 flex gap-3 justify-end">
+            <div>
+                <label for="staff-role" class="block text-sm font-medium text-gray-700 mb-1">职位 *</label>
+                <input type="text" class="input" id="staff-role" required name="staffRole" aria-label="员工职位">
+            </div>
+            <div>
+                <label for="staff-phone" class="block text-sm font-medium text-gray-700 mb-1">联系电话 *</label>
+                <input type="text" class="input" id="staff-phone" required name="staffPhone" aria-label="联系电话">
+            </div>
+            <div class="flex justify-end gap-3 pt-2">
                 <button type="button" class="btn btn-outline" id="cancel-staff">取消</button>
-                <button type="submit" class="btn btn-primary">保存</button>
+                <button type="submit" class="btn btn-primary" id="save-staff">保存</button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- 体温记录模态框 -->
-<div class="modal-backdrop" id="temperature-modal-backdrop"></div>
-<div class="modal" id="temperature-modal">
-    <div class="modal-content p-6 max-w-lg">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-bold" id="temperature-modal-title">员工体温记录</h3>
-            <button class="text-gray-400 hover:text-gray-600" id="close-temperature-modal">
-                <i class="fa fa-times"></i>
-            </button>
-        </div>
-        <div id="temperature-record-container">
-            <div class="text-center text-gray-500 py-8">
-                <i class="fa fa-thermometer-half text-4xl mb-2"></i>
-                <p>暂无体温记录</p>
-            </div>
-        </div>
-        <div class="mt-6 flex justify-end">
-            <button type="button" class="btn btn-outline" id="close-temperature-btn">关闭</button>
-        </div>
-    </div>
+<div class="sr-only" aria-hidden="true" id="a11y-hidden-labels-staff">
+  <label for="shop-select">所属店铺筛选</label>
+  <label for="staff-search">员工搜索</label>
+  <label for="staff-name">姓名</label>
+  <label for="staff-role">职位</label>
+  <label for="staff-phone">联系电话</label>
 </div>
 
 <script>
-// ========== 权限与租户初始化 ==========
-(function initAccess(){
-  const roleId = localStorage.getItem('userRoleId');
-  if(roleId !== '1'){ // 非管理员
-    alert('仅管理员可访问员工管理');
-    window.location.href = 'index.html';
-    return;
-  }
-  // 显示主体
-  document.getElementById('staff-main').style.display='flex';
-})();
-// ========== 门店/租户切换 ==========
-const TENANTS = ['bht','wx','rzt'];
-function initTenantSelect(){
-  const sel = document.getElementById('shop-select');
-  if(!sel) return;
-  sel.classList.remove('hidden');
-  sel.innerHTML = '<option value="">选择门店</option>' + TENANTS.map(t=>`<option value="${t}">${t}</option>`).join('');
-  const current = localStorage.getItem('selectedTenant') || '';
-  if(current) sel.value = current;
-  sel.addEventListener('change',()=>{
-    const v = sel.value;
-    if(v){ localStorage.setItem('selectedTenant', v); loadStaff(); }
-  });
-}
-// ========== 工具映射 ==========
-function roleFromPosition(pos){
-  switch(pos){
-    case 'manager': return 2; // 店长
-    case 'pharmacist': return 3; // 药师(假设)
-    case 'cashier': return 3; // 普通店员
-    case 'stockman': return 3;
-    default: return 3;
-  }
-}
-function positionFromRole(roleId){
-  if(roleId==1) return 'manager';
-  if(roleId==2) return 'pharmacist';
-  return 'cashier';
-}
-// ========== 主逻辑（覆写原DOMContentLoaded内部） ==========
-let staffList = [];
-let staffTable, searchInput;
-async function loadStaff(){
-  try {
-    if(!window.api?.employeesAPI?.getAll) throw new Error('employeesAPI不可用');
-    const list = await window.api.employeesAPI.getAll();
-    const arr = Array.isArray(list)? list : (list.data||[]);
-    staffList = arr.map(emp=>({
-      id: emp.employeeId || emp.id,
-      name: emp.name || emp.username || '未知',
-      position: positionFromRole(emp.roleId),
-      phone: emp.phone || '',
-      hireDate: emp.createTime || new Date().toISOString(),
-      temperature: (36.2 + Math.random()*0.8).toFixed(1),
-      status: emp.status===1 || emp.status===true,
-      shopId: localStorage.getItem('selectedTenant') || '',
-      shopName: localStorage.getItem('selectedTenant') || '当前租户',
-      temperatureRecord: []
-    }));
-    filterAndRenderStaff();
-  } catch(e){ console.error('加载员工失败',e); showToast('加载员工失败: '+e.message,'error'); }
-}
-function filterAndRenderStaff(){
-  const keyword = (searchInput?.value||'').toLowerCase().trim();
-  let filtered = staffList;
-  if(keyword){
-    filtered = filtered.filter(s=> s.name.toLowerCase().includes(keyword) || formatPosition(s.position).toLowerCase().includes(keyword));
-  }
-  renderStaffTable(filtered);
-}
-function renderStaffTable(rows){
-  staffTable.innerHTML='';
-  if(rows.length===0){
-    staffTable.innerHTML = '<tr><td colspan="9" class="px-6 py-10 text-center text-gray-500"><i class="fa fa-users text-4xl mb-2"></i><p>暂无员工数据</p></td></tr>';
-    return;
-  }
-  rows.forEach(staff=>{
-    const isHigh = parseFloat(staff.temperature)>=37.3;
-    const tr = document.createElement('tr');
-    tr.className='hover:bg-gray-50 transition-colors';
-    tr.innerHTML = `
-      <td class="px-6 py-4 whitespace-nowrap">${staff.shopName}</td>
-      <td class="px-6 py-4 whitespace-nowrap">${staff.id}</td>
-      <td class="px-6 py-4 whitespace-nowrap">${staff.name}</td>
-      <td class="px-6 py-4 whitespace-nowrap">${formatPosition(staff.position)}</td>
-      <td class="px-6 py-4 whitespace-nowrap">${staff.phone}</td>
-      <td class="px-6 py-4 whitespace-nowrap">${formatDate(staff.hireDate)}</td>
-      <td class="px-6 py-4 whitespace-nowrap"><span class="badge ${isHigh?'temperature-high':'temperature-normal'}" onclick="showTemperatureRecord(${staff.id})">${staff.temperature}°C <i class="fa fa-history ml-1 text-xs"></i></span></td>
-      <td class="px-6 py-4 whitespace-nowrap"><span class="badge ${staff.status?'bg-green-100 text-green-800':'bg-gray-100 text-gray-800'}">${staff.status?'在职':'离职'}</span></td>
-      <td class="px-6 py-4 whitespace-nowrap"><button class="text-primary hover:underline mr-3" onclick="editStaff(${staff.id})">编辑</button><button class="text-red-500 hover:underline" onclick="toggleStaffStatus(${staff.id},${!staff.status})">${staff.status?'设为离职':'设为在职'}</button></td>`;
-    staffTable.appendChild(tr);
-  });
-}
-function formatDate(d){ if(!d) return ''; return new Date(d).toLocaleDateString('zh-CN'); }
-function formatPosition(p){ return {manager:'店长',pharmacist:'药师',cashier:'收银员',stockman:'库管'}[p]||p; }
-function showToast(msg,type){ const c=document.createElement('div'); c.className=`fixed top-20 right-4 px-4 py-3 rounded-lg shadow-lg z-50 ${type==='error'?'bg-red-50 text-red-800 border border-red-200':'bg-green-50 text-green-800 border border-green-200'}`; c.innerHTML=msg; document.body.appendChild(c); setTimeout(()=>c.remove(),3000); }
-window.showTemperatureRecord = function(id){ /* 可后续实现记录显示 */ };
-window.editStaff = function(id){
-  const s = staffList.find(x=>x.id==id); if(!s) return;
-  document.getElementById('modal-title').textContent='编辑员工';
-  document.getElementById('staff-id').value = s.id;
-  document.getElementById('staff-name').value = s.name;
-  document.getElementById('staff-position').value = s.position;
-  document.getElementById('staff-phone').value = s.phone;
-  document.getElementById('staff-hireDate').value = (s.hireDate||'').split('T')[0];
-  document.getElementById('staff-temperature').value = s.temperature;
-  document.getElementById('staff-status').value = s.status;
-  document.getElementById('edit-status-container').classList.remove('hidden');
-  openModal('staff-modal','staff-modal-backdrop');
-};
-window.toggleStaffStatus = async function(id,newStatus){
-  const s = staffList.find(x=>x.id==id); if(!s) return;
-  if(!confirm(`确定${newStatus?'设为在职':'设为离职'}: ${s.name}?`)) return;
-  try { await window.api.employeesAPI.toggleStatus(id,newStatus); showToast('状态更新成功'); loadStaff(); } catch(e){ showToast('状态更新失败','error'); }
-};
-// 表单提交重写
-const staffForm = document.getElementById('staff-form');
-if(staffForm){ staffForm.addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const id = document.getElementById('staff-id').value.trim();
-  const payload = {
-    name: document.getElementById('staff-name').value.trim(),
-    username: document.getElementById('staff-name').value.trim(),
-    phone: document.getElementById('staff-phone').value.trim(),
-    roleId: roleFromPosition(document.getElementById('staff-position').value),
-    // 默认密码: 123456 (后端需支持或忽略)
-    password: '123456',
-    status: (id? document.getElementById('staff-status').value==='true': true)?1:0
-  };
-  try {
-    if(id){ await window.api.employeesAPI.update(id,payload); showToast('员工更新成功'); }
-    else { await window.api.employeesAPI.create(payload); showToast('员工创建成功'); }
-    closeModal('staff-modal','staff-modal-backdrop'); staffForm.reset(); document.getElementById('staff-id').value=''; document.getElementById('edit-status-container').classList.add('hidden'); loadStaff();
-  } catch(e){ showToast('保存失败:'+e.message,'error'); }
-}); }
-// 补充: 键盘交互初始化（之前引用缺失导致报错）
-function initKeyInteractions(){
-  // ESC 关闭当前打开的模态
-  document.addEventListener('keydown', (e)=>{
-    if(e.key === 'Escape'){
-      const modal = document.getElementById('staff-modal');
-      if(modal && !modal.classList.contains('hidden')){
-        closeModal('staff-modal','staff-modal-backdrop');
-      }
-    }
-  });
-  // Enter 在搜索框时触发过滤
-  const search = document.getElementById('staff-search');
-  if(search){
-    search.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ e.preventDefault(); filterAndRenderStaff(); }});
-  }
-  // 方向键在搜索与刷新按钮之间切换焦点（提高可用性）
-  const refreshBtn = document.getElementById('refresh-staff');
-  if(search && refreshBtn){
-    search.addEventListener('keydown',(e)=>{ if(e.key==='ArrowDown'){ refreshBtn.focus(); }});
-    refreshBtn.addEventListener('keydown',(e)=>{ if(e.key==='ArrowUp'){ search.focus(); }});
-  }
-}
-// 初始化
-document.addEventListener('DOMContentLoaded',()=>{ staffTable=document.getElementById('staff-table'); searchInput=document.getElementById('staff-search'); initTenantSelect(); loadStaff(); searchInput.addEventListener('input',filterAndRenderStaff); document.getElementById('refresh-staff').addEventListener('click',()=>loadStaff()); initKeyInteractions(); });
-</script>
+    (function(){
+      const bar=document.getElementById('scroll-progress');
+      function update(){const h=document.documentElement.scrollHeight - window.innerHeight;const sc=window.scrollY;bar&&(bar.style.width=(h>0?(sc/h)*100:0)+'%');}
+      window.addEventListener('scroll',update,{passive:true});update();
+      if(!document.getElementById('theme-toggle')){const btn=document.createElement('button');btn.id='theme-toggle';btn.className='theme-toggle';btn.innerHTML='<i class="fa fa-moon-o"></i>';btn.onclick=()=>{const dark=document.documentElement.classList.toggle('dark');btn.innerHTML='<i class="fa '+(dark?'fa-sun-o':'fa-moon-o')+'"></i>';};document.body.appendChild(btn);} })();
+  </script>
+<script src="js/a11y.js" defer></script>
 </body>
 </html>

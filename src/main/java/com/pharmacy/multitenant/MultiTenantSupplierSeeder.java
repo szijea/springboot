@@ -15,15 +15,14 @@ public class MultiTenantSupplierSeeder {
     public ApplicationRunner supplierDefaultSeeder(MultiTenantDataSourceConfig dsConfig, SupplierRepository supplierRepository) {
         return args -> {
             System.out.println("[SupplierSeeder] 开始检测多租户默认供应商...");
-            for (String tenantId : dsConfig.getDataSourceMap().keySet()) {
+            // 使用 entrySet 显式类型，避免类型擦除导致 Map.Entry<String,DataSource> 转换为原始 Entry<Object,Object>
+            for (java.util.Map.Entry<String, javax.sql.DataSource> entry : dsConfig.getDataSourceMap().entrySet()) {
+                String tenantId = entry.getKey();
                 if ("default".equals(tenantId)) continue;
                 TenantContext.setTenant(tenantId);
                 try {
                     long count = supplierRepository.count();
-                    boolean needCreate = (count == 0);
-                    if (!needCreate && supplierRepository.findBySupplierName("默认供应商").isEmpty()) {
-                        needCreate = true;
-                    }
+                    boolean needCreate = (count == 0) || supplierRepository.findBySupplierName("默认供应商").isEmpty();
                     if (needCreate) {
                         Supplier s = new Supplier();
                         s.setSupplierName("默认供应商");

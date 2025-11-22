@@ -1,5 +1,13 @@
-// common.js - 修复版本
-const BASE_URL = (typeof window !== 'undefined' && window.location ? window.location.origin : 'http://localhost:8080') + '/api';
+// common.js - 统一版
+
+// 统一 API 基础地址：优先使用部署时注入的 window.API_BASE，其次 location.origin + '/api'
+const BASE_URL = (function(){
+  if (typeof window !== 'undefined') {
+    if (window.API_BASE) return window.API_BASE.replace(/\/$/, '');
+    if (window.location && window.location.origin) return window.location.origin + '/api';
+  }
+  return 'http://localhost:8081/api'; // 最后回退
+})();
 
 // 通用API调用函数
 async function apiCall(endpoint, options = {}) {
@@ -254,17 +262,18 @@ const utils = {
 // 显示消息提示
 function showMessage(message, type = 'success') {
     const messageDiv = document.createElement('div');
+    messageDiv.setAttribute('role','alert');
+    messageDiv.setAttribute('aria-live','polite');
     messageDiv.className = `fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50 ${
-        type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+        type === 'success' ? 'bg-green-500 text-white' : (type==='error' ? 'bg-red-500 text-white' : 'bg-blue-500 text-white')
     }`;
     messageDiv.innerHTML = `
-        <i class="fa ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle'} mr-2"></i>
+        <i class="fa ${type === 'success' ? 'fa-check-circle' : (type==='error'?'fa-exclamation-triangle':'fa-info-circle')} mr-2"></i>
         ${message}
     `;
     document.body.appendChild(messageDiv);
-    setTimeout(() => {
-        messageDiv.remove();
-    }, 3000);
+    if(typeof window.announce === 'function'){ window.announce(message); }
+    setTimeout(() => { messageDiv.remove(); }, 3000);
 }
 
 // 确保全局导出（合并已存在的 window.api，避免覆盖）
@@ -302,7 +311,7 @@ function showMessage(message, type = 'success') {
 if (typeof window.refreshDashboardWidgets !== 'function') {
   window.refreshDashboardWidgets = async function(){
     try {
-      const base = window.api?.BASE_URL || 'http://localhost:8080/api';
+      const base = window.api?.BASE_URL || 'http://localhost:8081/api';
       const [alertsResp, hotResp] = await Promise.all([
         fetch(base + '/dashboard/stock-alerts').then(r=>r.json()).catch(()=>null),
         fetch(base + '/dashboard/hot-products').then(r=>r.json()).catch(()=>null)

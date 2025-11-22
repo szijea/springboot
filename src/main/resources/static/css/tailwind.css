@@ -44,8 +44,10 @@ html,body{margin:0;padding:0;font-family:Inter,system-ui,sans-serif;}
 .pagination-btn{width:2rem;height:2rem;display:flex;align-items:center;justify-content:center;border:1px solid #d1d5db;border-radius:.375rem;font-size:.75rem;background:#fff;cursor:pointer;}
 .pagination-btn.active{background:#165DFF;color:#fff;border-color:#165DFF;}
 .pagination-btn:hover{background:#f1f5f9;}
-/* 模态遮罩 */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:50;}
+/* 模态遮罩 (调整: 默认隐藏, 仅 show 时显示) */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:50;padding:1rem;}
+.modal-overlay.show{display:flex;}
+.modal-content{background:#fff;border-radius:.75rem;box-shadow:0 10px 25px -5px rgba(0,0,0,.25),0 8px 10px -6px rgba(0,0,0,.15);width:100%;max-height:90vh;overflow:auto;transition:.25s ease;transform:scale(.98);opacity:0;}
+.modal-overlay.show .modal-content{transform:scale(1);opacity:1;}
 /* 动画回退 */
 .animate-bounce{animation:bounce 1s infinite;} @keyframes bounce{0%,100%{transform:translateY(-5%);}50%{transform:translateY(0);}}
-

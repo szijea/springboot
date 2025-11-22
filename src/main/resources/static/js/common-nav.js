@@ -15,14 +15,15 @@
         }
     }
     function buildNav(active){
-        // 链接列表
+        // 链接列表（新增 sales）
         var links = [
             {href: 'medicine-management.html', icon: 'fa-dashboard', text: '控制台', key: 'dashboard'},
             {href: 'cashier.html', icon: 'fa-shopping-cart', text: '收银管理', key: 'cashier'},
             {href: 'stock-in.html', icon: 'fa-box', text: '药品入库', key: 'stock-in'},
             {href: 'inventory.html', icon: 'fa-warehouse', text: '库存管理', key: 'inventory'},
             {href: 'order-history.html', icon: 'fa-history', text: '历史订单', key: 'order-history'},
-            {href: 'members.html', icon: 'fa-users', text: '会员管理', key: 'members'}
+            {href: 'members.html', icon: 'fa-users', text: '会员管理', key: 'members'},
+            {href: 'sales.html', icon: 'fa-line-chart', text: '销售统计', key: 'sales'}
         ];
         // 仅管理员可见的链接
         var adminLinks = [
@@ -37,7 +38,7 @@
         var primaryDisplay = escapeHtml(localStorage.getItem('currentUser') || usernameDisplay);
         var secondaryDisplay = roleDisplay;
         var aside = '' +
-        '<aside class="w-64 bg-white border-r border-gray-200 flex-shrink-0 flex flex-col h-screen transition-all duration-300 ease-in-out z-10">' +
+        '<aside role="navigation" aria-label="侧边主导航" class="w-64 bg-white border-r border-gray-200 flex-shrink-0 flex flex-col h-screen transition-all duration-300 ease-in-out z-10">' +
         '  <div class="p-4 border-b border-gray-200">' +
         '    <div class="flex items-center gap-3">' +
         '      <div class="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">' +
@@ -111,6 +112,7 @@
         if(!container) return;
         var active = container.getAttribute('data-active') || '';
         container.innerHTML = buildNav(active);
+        afterLinkBuild();
 
         // 侧边栏切换
         var toggle = document.getElementById('sidebar-toggle');
@@ -162,6 +164,10 @@
         var rEl = document.getElementById('nav-role');
         if(uEl) uEl.textContent = localStorage.getItem('currentUser') || getCurrentUsername();
         if(rEl) rEl.textContent = getCurrentRoleText();
+    }
+
+    function afterLinkBuild(){
+        document.querySelectorAll('aside .sidebar-item.active').forEach(a=>a.setAttribute('aria-current','page'));
     }
 
     if(document.readyState === 'loading'){

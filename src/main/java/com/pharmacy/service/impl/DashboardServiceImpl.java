@@ -91,36 +91,20 @@ public class DashboardServiceImpl implements DashboardService {
             LocalDateTime now = LocalDateTime.now();
             switch (period) {
                 case "day" -> {
-                    // 使用整天区间 [00:00, 次日00:00)
                     LocalDateTime startDate = now.withHour(0).withMinute(0).withSecond(0).withNano(0);
                     LocalDateTime endDate = startDate.plusDays(1);
-                    List<Object[]> hourly = orderRepository.getHourlySales(startDate, endDate);
-                    Integer[] hours = new Integer[8];
-                    java.util.Arrays.fill(hours, 0);
-                    if (hourly != null) {
-                        for (Object[] row : hourly) {
-                            if (row == null || row.length < 2) continue;
-                            // 兼容可能出现的 Long / Integer / BigInteger 等数值类型
-                            Integer hour = null;
-                            if (row[0] instanceof Number) {
-                                hour = ((Number) row[0]).intValue();
-                            } else if (row[0] instanceof String) {
-                                try { hour = Integer.parseInt((String) row[0]); } catch (NumberFormatException ignored) {}
-                            }
-                            Double sum = null;
-                            if (row[1] instanceof Number) {
-                                sum = ((Number) row[1]).doubleValue();
-                            } else if (row[1] instanceof String) {
-                                try { sum = Double.parseDouble((String) row[1]); } catch (NumberFormatException ignored) {}
-                            }
-                            if (hour != null) {
-                                int bucket = hour / 3; // 将 0-23 映射到 0-7
-                                if (bucket >= 0 && bucket < hours.length) {
-                                    hours[bucket] += sum != null ? (int) Math.round(sum) : 0;
-                                }
-                            }
+                    // 直接拉取当天已支付订单，使用 Java 按小时聚合再映射 3 小时桶，避免 HOUR 函数方言差异
+                    java.util.List<com.pharmacy.entity.Order> orders = orderRepository.findByOrderTimeBetween(startDate, endDate);
+                    int[] buckets = new int[8];
+                    for (com.pharmacy.entity.Order o : orders) {
+                        if (o.getPaymentStatus() != null && o.getPaymentStatus() == 1 && o.getOrderTime() != null) {
+                            int hour = o.getOrderTime().getHour();
+                            int bucket = hour / 3; // 0..7
+                            double amt = o.getTotalAmount();
+                            buckets[bucket] += (int)Math.round(amt);
                         }
                     }
+                    Integer[] hours = java.util.Arrays.stream(buckets).boxed().toArray(Integer[]::new);
                     trendData.put("labels", new String[]{"00:00", "03:00", "06:00", "09:00", "12:00", "15:00", "18:00", "21:00"});
                     trendData.put("data", hours);
                 }

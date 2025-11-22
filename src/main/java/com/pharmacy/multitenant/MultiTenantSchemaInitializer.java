@@ -156,6 +156,7 @@ public class MultiTenantSchemaInitializer {
     }
 
     private void ensureStockInItemTable(Connection conn, String catalog) throws SQLException {
+        boolean medicineExists = tableExists(conn, catalog, "medicine");
         if (!tableExists(conn, catalog, "stock_in_item")) {
             String ddl = "CREATE TABLE stock_in_item (" +
                     "item_id BIGINT AUTO_INCREMENT PRIMARY KEY, " +
@@ -167,18 +168,18 @@ public class MultiTenantSchemaInitializer {
                     "production_date DATE NULL, " +
                     "expiry_date DATE NULL, " +
                     "INDEX idx_stock_in_item_fk(stock_in_id), " +
-                    "INDEX idx_stock_in_item_med(medicine_id), " +
-                    "CONSTRAINT fk_stock_item_in FOREIGN KEY (stock_in_id) REFERENCES stock_in(stock_in_id) ON DELETE CASCADE, " +
-                    "CONSTRAINT fk_stock_item_med FOREIGN KEY (medicine_id) REFERENCES medicine(medicine_id) ON DELETE RESTRICT" +
+                    "INDEX idx_stock_in_item_med(medicine_id)" +
+                    (medicineExists ? ", CONSTRAINT fk_stock_item_in FOREIGN KEY (stock_in_id) REFERENCES stock_in(stock_in_id) ON DELETE CASCADE, CONSTRAINT fk_stock_item_med FOREIGN KEY (medicine_id) REFERENCES medicine(medicine_id) ON DELETE RESTRICT" : "") +
                     ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
             try (Statement st = conn.createStatement()) {
                 st.executeUpdate(ddl);
-                System.out.println("[SchemaInit] 已创建表 stock_in_item");
+                System.out.println("[SchemaInit] 已创建表 stock_in_item (medicineExists="+medicineExists+")");
             }
         } else {
             addColumnIfMissing(conn, "stock_in_item", "batch_number", "VARCHAR(50) NULL");
             addColumnIfMissing(conn, "stock_in_item", "production_date", "DATE NULL");
             addColumnIfMissing(conn, "stock_in_item", "expiry_date", "DATE NULL");
+            // 若原先缺失外键且 medicine 表现在存在，可考虑后续人工补充，不在此强制 ALTER 以避免锁等待
         }
     }
 
